@@ -1,0 +1,31 @@
+model:
+  name: "Qwen/Qwen2.5-VL-7B-Instruct"  # Or local path like "/shared/smartbot/caopeizhou/models/Qwen/Qwen3-VL-30B-A3B-Instruct"
+  device_map: "auto"
+  dtype: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  temperature: 0.8
+  max_new_tokens: 512
+
+data:
+  input_dir: "./data"
+  output_dir: "./output"
+  # Define how to identify views. Keys are internal logical names, values are filename patterns.
+  # Use list for multiple possible patterns.
+  views:
+    front: ["front.png", "0.png"]
+    left: ["left.png", "1.png"]
+    back: ["back.png", "2.png"]
+    right: ["right.png", "3.png"]
+  
+  # If thumbnails directory is used (legacy mode)
+  use_thumbnails_dir: false
+  thumbnails_dir_name: "thumbnails"
+
+processing:
+  batch_size: 1  # Not really used in original script for VLM pipeline but good to have
+  num_chunks: 1
+  chunk_index: 0
+  
+prompts:
+  # Default prompt type to use
+  default_type: "extract_object_attributes_prompt"

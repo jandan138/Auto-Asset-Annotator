@@ -1,0 +1,8 @@
+transformers>=4.37.0
+torch>=2.1.0
+pillow>=10.0.0
+natsort>=8.4.0
+tqdm>=4.66.0
+qwen-vl-utils
+pyyaml>=6.0
+accelerate>=0.26.0
