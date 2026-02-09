@@ -76,6 +76,9 @@ def main():  # 定义主函数
         asset_path = os.path.join(cfg.data.input_dir, asset_name)  # 构造资产的完整路径
         output_file = os.path.join(cfg.data.output_dir, f"{asset_name}_annotation.json")  # 构造输出文件的路径
         
+        # Ensure subdirectories exist for output_file
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        
         # Check if exists
         if os.path.exists(output_file):  # 检查输出文件是否已存在
              # Maybe add a --force flag? For now skip

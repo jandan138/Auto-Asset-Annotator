@@ -10,16 +10,26 @@ class ModelEngine:  # 定义 ModelEngine 类，用于封装模型操作
         print(f"[INFO] Loading model: {config.name}")  # 打印正在加载的模型名称
         
         # Try to import specific class if needed, otherwise use AutoModel
-        try:  # 尝试导入 Qwen3VLMoeForConditionalGeneration
-            from transformers import Qwen3VLMoeForConditionalGeneration
-            model_class = Qwen3VLMoeForConditionalGeneration  # 如果成功，使用该类
-        except ImportError:  # 如果导入失败
-            try:  # 尝试导入 Qwen2_5_VLForConditionalGeneration
-                 from transformers import Qwen2_5_VLForConditionalGeneration
-                 model_class = Qwen2_5_VLForConditionalGeneration  # 如果成功，使用该类
-            except ImportError:  # 如果都导入失败
-                 from transformers import AutoModelForCausalLM
-                 model_class = AutoModelForCausalLM  # 使用通用的 AutoModelForCausalLM
+        # Since we are using Qwen2.5-VL which is supported by AutoModel, let's prioritize AutoModel
+        # or specific Qwen2_5_VLForConditionalGeneration.
+        # The previous logic was prioritizing Qwen3VLMoe which caused mismatch errors.
+        
+        try:
+             from transformers import Qwen2_5_VLForConditionalGeneration
+             model_class = Qwen2_5_VLForConditionalGeneration
+        except ImportError:
+             from transformers import AutoModelForCausalLM
+             model_class = AutoModelForCausalLM
+
+        # Only fallback to Qwen3 if specifically needed or as last resort, 
+        # but better to rely on AutoModel for generic cases.
+        if "Qwen3" in config.name and model_class == AutoModelForCausalLM:
+             try:
+                 from transformers import Qwen3VLMoeForConditionalGeneration
+                 model_class = Qwen3VLMoeForConditionalGeneration
+             except ImportError:
+                 pass
+
 
         print(f"[INFO] Using model class: {model_class.__name__}")  # 打印实际使用的模型类名
 

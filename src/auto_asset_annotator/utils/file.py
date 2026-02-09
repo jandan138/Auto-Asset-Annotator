@@ -65,16 +65,30 @@ def get_asset_images(asset_path: str, config: DataConfig) -> Dict[str, str]:  # 
 
     return images  # 返回图片字典
 
-def list_assets(input_dir: str) -> List[str]:  # 定义列出资产的函数
+def list_assets(input_dir: str) -> List[str]:
     """
-    List all subdirectories in input_dir that look like assets.
+    Recursively list all subdirectories in input_dir that contain images and look like assets.
+    Returns relative paths from input_dir.
     """
-    if not os.path.exists(input_dir):  # 如果输入目录不存在
-        return []  # 返回空列表
+    if not os.path.exists(input_dir):
+        return []
     
-    assets = []  # 初始化资产列表
-    for name in os.listdir(input_dir):  # 遍历输入目录下的所有项
-        full_path = os.path.join(input_dir, name)  # 构造完整路径
-        if os.path.isdir(full_path):  # 如果是目录
-            assets.append(name)  # 添加到资产列表
-    return natsorted(assets)  # 返回自然排序后的资产列表
+    assets = []
+    input_dir = os.path.abspath(input_dir)
+    
+    for root, dirs, files in os.walk(input_dir):
+        # Check if this directory contains images
+        has_images = any(f.lower().endswith(('.png', '.jpg', '.jpeg')) for f in files)
+        
+        if has_images:
+            # It's an asset.
+            # Get relative path from input_dir
+            rel_path = os.path.relpath(root, input_dir)
+            if rel_path != ".":
+                assets.append(rel_path)
+            
+            # Don't look inside an asset for more assets (usually assets are leaf nodes in terms of content)
+            # This prevents finding thumbnails folder inside an asset folder as a separate asset
+            dirs[:] = []
+            
+    return natsorted(assets)
