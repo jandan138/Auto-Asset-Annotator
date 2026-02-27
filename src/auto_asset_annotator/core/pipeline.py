@@ -1,5 +1,5 @@
 import os  # 导入 os 模块，用于处理文件系统路径
-import json  # 导入 json 模块，用于处理 JSON 数据
+import re
 import time  # 导入 time 模块，用于计时
 from typing import Dict, Any, List  # 导入类型提示
 from .model import ModelEngine  # 导入 ModelEngine 类，用于模型推理
@@ -57,24 +57,19 @@ class AnnotationPipeline:  # 定义 AnnotationPipeline 类，用于管理标注�
         # 4. Inference
         start_time = time.time()  # 记录开始时间
         try:  # 尝试进行推理
-            result_text = self.engine.inference(messages)  # 调用引擎进行推理，获取文本结果
+            result_text = self.engine.inference(messages)
             
-            # Parse JSON if expected
-            if "json" in prompt_type.lower() or "extract" in prompt_type.lower():  # 如果提示词类型暗示需要 JSON 输出
-                try:  # 尝试解析 JSON
-                    # Clean up code blocks if present
-                    clean_text = result_text.strip()  # 去除首尾空白字符
-                    if clean_text.startswith("```json"):  # 如果以 ```json 开头
-                        clean_text = clean_text[7:]  # 去除 ```json
-                    if clean_text.endswith("```"):  # 如果以 ``` 结尾
-                        clean_text = clean_text[:-3]  # 去除 ```
-                    
-                    result_data = json.loads(clean_text)  # 解析 JSON 字符串
-                    result = result_data  # 将解析结果作为最终结果
-                except json.JSONDecodeError:  # 如果解析失败
-                    print(f"[WARN] Failed to parse JSON for {asset_id}. Saving raw text.")  # 打印警告
-                    result = {"raw_output": result_text}  # 保存原始文本
-            else:  # 如果不需要 JSON
+            # Parse structured text if expected
+            if "json" in prompt_type.lower() or "extract" in prompt_type.lower():  # 如果提示词类型暗示需要结构化输出
+                try:
+                    result = self.parse_structured_text(result_text)
+                    if not result:
+                        print(f"[WARN] No structured data found for {asset_id}. Saving raw text.")
+                        result = {"raw_output": result_text}
+                except Exception as e:
+                    print(f"[WARN] Failed to parse structured text for {asset_id}: {e}. Saving raw text.")
+                    result = {"raw_output": result_text}
+            else:  # 如果不需要结构化输出
                 result = result_text  # 直接使用文本结果
 
         except Exception as e:  # 捕获推理过程中的异常
@@ -95,3 +90,36 @@ class AnnotationPipeline:  # 定义 AnnotationPipeline 类，用于管理标注�
             "role": "user",  # 角色为用户
             "content": content  # 内容列表
         }]
+
+    def parse_structured_text(self, text: str) -> Dict[str, str]:
+        """
+        Parses text where keys are defined at the start of lines followed by a colon.
+        Handles multi-line values.
+        """
+        result = {}
+        current_key = None
+        current_value_lines = []
+        
+        lines = text.split('\n')
+        # Regex to identify a key at the start of a line.
+        key_pattern = re.compile(r'^([A-Za-z0-9_\s]+):\s*(.*)')
+        
+        for line in lines:
+            match = key_pattern.match(line)
+            if match:
+                if current_key:
+                    result[current_key] = '\n'.join(current_value_lines).strip()
+                
+                current_key = match.group(1).strip()
+                first_line_value = match.group(2).strip()
+                current_value_lines = []
+                if first_line_value:
+                    current_value_lines.append(first_line_value)
+            else:
+                if current_key:
+                    current_value_lines.append(line)
+                    
+        if current_key:
+            result[current_key] = '\n'.join(current_value_lines).strip()
+            
+        return result

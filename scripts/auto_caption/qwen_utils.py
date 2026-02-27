@@ -227,22 +227,19 @@ def _compose_user_prompt(image_number: int, prompt_type: str, image_merge: bool=
         )
         attribute_query = (
             "Analyze the provided image and extract the following structured information. "
-            "You MUST respond in strict JSON format with ALL fields required. Do not omit any field.\n\n"
-            "Required JSON structure:\n"
-            "{\n"
-            '  "category": "object type (e.g., plate, cup, bottle)",\n'
-            '  "description": "comprehensive description covering: physical appearance (shape, form, colors), material properties (surface texture, finish), scale and proportions, current state (e.g., open/closed components), functional purpose, and distinctive design features. Use concrete, observable details in 3-4 sentences.",\n'
-            '  "material": "describe all materials present in the object in detail. For each material, specify which part of the object it applies to (e.g., \'metal handle\', \'ceramic body\', \'rubber base\'). List as many different materials as you can identify. Common materials include: plastic, metal, wood, fabric, ceramic, glass, rubber, stone, paper, foam, leather, cardboard, clay, resin, plaster, polyester, laminate, cotton, steel, aluminum, concrete, stainless steel, gold, silver, etc.",\n'
-            '  "dimensions": "length * width * height in meters (e.g., 0.25 * 0.25 * 0.05). Estimate if exact values unknown.",\n'
-            '  "mass": "mass in kilograms as a number (e.g., 0.5). Estimate if exact value unknown.",\n'
-            '  "placement": "select one or more possible placements from the list: OnFloor, OnObject, OnWall, OnCeiling, OnTable. If multiple placements are possible, list them in descending order of likelihood (e.g., [\'OnTable\', \'OnFloor\', \'OnObject\'])"\n'
-            "}\n\n"
+            "Provide the information in a structured text format with explicit headers. Do not use JSON or any other code block formatting.\n\n"
+            "Required format:\n"
+            "Category: object type (e.g., plate, cup, bottle)\n"
+            "Description: comprehensive description covering: physical appearance (shape, form, colors), material properties (surface texture, finish), scale and proportions, current state (e.g., open/closed components), functional purpose, and distinctive design features. Use concrete, observable details in 3-4 sentences.\n"
+            "Material: describe all materials present in the object in detail. For each material, specify which part of the object it applies to (e.g., 'metal handle', 'ceramic body', 'rubber base'). List as many different materials as you can identify. Common materials include: plastic, metal, wood, fabric, ceramic, glass, rubber, stone, paper, foam, leather, cardboard, clay, resin, plaster, polyester, laminate, cotton, steel, aluminum, concrete, stainless steel, gold, silver, etc.\n"
+            "Dimensions: length * width * height in meters (e.g., 0.25 * 0.25 * 0.05). Estimate if exact values unknown.\n"
+            "Mass: mass in kilograms as a number (e.g., 0.5). Estimate if exact value unknown.\n"
+            "Placement: select one or more possible placements from the list: OnFloor, OnObject, OnWall, OnCeiling, OnTable. If multiple placements are possible, list them in descending order of likelihood (e.g., OnTable, OnFloor, OnObject)\n\n"
             "Important: \n"
-            "1. Return ONLY valid JSON, no additional text\n"
-            "2. ALL fields are mandatory - provide best estimate if uncertain\n"
-            "3. For 'material', describe all materials and their corresponding parts comprehensively\n"
-            "4. For 'placement', provide one or more options as an array, ordered by likelihood (most likely first)\n"
-            "5. Ensure proper JSON syntax with double quotes"
+            "1. Return ONLY the structured text with the specified headers.\n"
+            "2. ALL fields are mandatory - provide best estimate if uncertain.\n"
+            "3. For 'Material', describe all materials and their corresponding parts comprehensively.\n"
+            "4. For 'Placement', provide one or more options ordered by likelihood."
         )
         user_prompt = f"{object_query} {attribute_query}"
     elif prompt_type == "object_cognition_QA_with_background_prompt":     

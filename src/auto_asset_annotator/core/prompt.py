@@ -60,24 +60,21 @@ class PromptFactory:  # 定义 PromptFactory 类，用于生成提示词
             object_query = (  # 定义对象查询描述
                 f"You are provided with multiple views of a {object_category} object that is placed {object_in_scene_type}. "  # 描述物体及其场景
             )
-            attribute_query = (  # 定义属性查询要求
-                "Analyze the provided image and extract the following structured information. "  # 分析图片并提取结构化信息
-                "You MUST respond in strict JSON format with ALL fields required. Do not omit any field.\n\n"  # 必须返回严格的 JSON 格式
-                "Required JSON structure:\n"  # 要求的 JSON 结构
-                "{\n"
-                '  "category": "object type (e.g., plate, cup, bottle)",\n'  # 类别字段
-                '  "description": "comprehensive description covering: physical appearance (shape, form, colors), material properties (surface texture, finish), scale and proportions, current state (e.g., open/closed components), functional purpose, and distinctive design features. Use concrete, observable details in 3-4 sentences.",\n'  # 描述字段
-                '  "material": "describe all materials present in the object in detail. For each material, specify which part of the object it applies to (e.g., \'metal handle\', \'ceramic body\', \'rubber base\'). List as many different materials as you can identify. Common materials include: plastic, metal, wood, fabric, ceramic, glass, rubber, stone, paper, foam, leather, cardboard, clay, resin, plaster, polyester, laminate, cotton, steel, aluminum, concrete, stainless steel, gold, silver, etc.",\n'  # 材质字段
-                '  "dimensions": "length * width * height in meters (e.g., 0.25 * 0.25 * 0.05). Estimate if exact values unknown.",\n'  # 尺寸字段
-                '  "mass": "mass in kilograms as a number (e.g., 0.5). Estimate if exact value unknown.",\n'  # 质量字段
-                '  "placement": "select one or more possible placements from the list: OnFloor, OnObject, OnWall, OnCeiling, OnTable. If multiple placements are possible, list them in descending order of likelihood (e.g., [\'OnTable\', \'OnFloor\', \'OnObject\'])"\n'  # 放置位置字段
-                "}\n\n"
-                "Important: \n"  # 重要提示
-                "1. Return ONLY valid JSON, no additional text\n"  # 仅返回 JSON
-                "2. ALL fields are mandatory - provide best estimate if uncertain\n"  # 所有字段必填
-                "3. For 'material', describe all materials and their corresponding parts comprehensively\n"  # 详细描述材质
-                "4. For 'placement', provide one or more options as an array, ordered by likelihood (most likely first)\n"  # 放置位置为数组
-                "5. Ensure proper JSON syntax with double quotes"  # 确保 JSON 语法正确
+            attribute_query = (
+                "Analyze the provided image and extract the following structured information. "
+                "Provide the information in a structured text format with explicit headers. Do not use JSON or any other code block formatting.\n\n"
+                "Required format:\n"
+                "Category: object type (e.g., plate, cup, bottle)\n"
+                "Description: comprehensive description covering: physical appearance (shape, form, colors), material properties (surface texture, finish), scale and proportions, current state (e.g., open/closed components), functional purpose, and distinctive design features. Use concrete, observable details in 3-4 sentences.\n"
+                "Material: describe all materials present in the object in detail. For each material, specify which part of the object it applies to (e.g., 'metal handle', 'ceramic body', 'rubber base'). List as many different materials as you can identify. Common materials include: plastic, metal, wood, fabric, ceramic, glass, rubber, stone, paper, foam, leather, cardboard, clay, resin, plaster, polyester, laminate, cotton, steel, aluminum, concrete, stainless steel, gold, silver, etc.\n"
+                "Dimensions: length * width * height in meters (e.g., 0.25 * 0.25 * 0.05). Estimate if exact values unknown.\n"
+                "Mass: mass in kilograms as a number (e.g., 0.5). Estimate if exact value unknown.\n"
+                "Placement: select one or more possible placements from the list: OnFloor, OnObject, OnWall, OnCeiling, OnTable. If multiple placements are possible, list them in descending order of likelihood (e.g., OnTable, OnFloor, OnObject)\n\n"
+                "Important: \n"
+                "1. Return ONLY the structured text with the specified headers.\n"
+                "2. ALL fields are mandatory - provide best estimate if uncertain.\n"
+                "3. For 'Material', describe all materials and their corresponding parts comprehensively.\n"
+                "4. For 'Placement', provide one or more options ordered by likelihood."
             )
             return f"{object_query} {attribute_query}"  # 拼接并返回完整提示词
         

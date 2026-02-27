@@ -27,6 +27,8 @@ venv/
 env/
 ENV/
 .venv/
+.venv_bak/
+.venv_dlc/
 
 # IDE
 .idea/
@@ -40,3 +42,7 @@ output/
 test_output/
 test_data/
 *.log
+
+# Temporary Lists & Scripts
+failed_assets*.txt
+test_env.sh

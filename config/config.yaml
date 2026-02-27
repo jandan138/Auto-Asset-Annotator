@@ -4,8 +4,8 @@ model:
   dtype: "bfloat16"
   # attn_implementation: "flash_attention_2"
   attn_implementation: "eager"
-  temperature: 0.8
-  max_new_tokens: 512
+  temperature: 0.1
+  max_new_tokens: 2048
 
 data:
   input_dir: "./data"

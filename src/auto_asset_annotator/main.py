@@ -14,6 +14,7 @@ def main():  # 定义主函数
     parser.add_argument("--output_dir", help="Override output directory")  # 添加 --output_dir 参数，用于覆盖配置文件中的输出目录
     parser.add_argument("--model_path", help="Override model path")  # 添加 --model_path 参数，用于覆盖模型路径
     parser.add_argument("--prompt_type", help="Override prompt type")  # 添加 --prompt_type 参数，用于覆盖提示词类型
+    parser.add_argument("--asset_list_file", help="Override asset list file")
     
     # Chunking args for batch jobs
     parser.add_argument("--num_chunks", type=int, help="Total number of chunks")  # 添加 --num_chunks 参数，指定总的分块数量，用于批处理任务
@@ -37,6 +38,8 @@ def main():  # 定义主函数
         cfg.model.name = args.model_path  # 覆盖配置中的模型名称/路径
     if args.prompt_type:  # 如果命令行参数指定了提示词类型
         cfg.prompts.default_type = args.prompt_type  # 覆盖配置中的默认提示词类型
+    if args.asset_list_file:
+        cfg.data.asset_list_file = args.asset_list_file
     
     if args.num_chunks is not None:  # 如果命令行参数指定了分块数量
         cfg.processing.num_chunks = args.num_chunks  # 覆盖配置中的分块数量
@@ -54,9 +57,15 @@ def main():  # 定义主函数
     pipeline = AnnotationPipeline(cfg, engine)  # 创建 AnnotationPipeline 实例，传入配置和引擎
 
     # List Assets
-    print(f"Scanning for assets in {cfg.data.input_dir}...")  # 打印正在扫描资产目录的信息
-    all_assets = list_assets(cfg.data.input_dir)  # 调用 list_assets 函数获取所有资产列表
-    print(f"Found {len(all_assets)} total assets.")  # 打印找到的资产总数
+    if hasattr(cfg.data, "asset_list_file") and cfg.data.asset_list_file:
+        print(f"[INFO] Loading asset list from {cfg.data.asset_list_file}")
+        with open(cfg.data.asset_list_file, 'r') as f:
+            all_assets = [line.strip() for line in f if line.strip()]
+        print(f"[INFO] Loaded {len(all_assets)} assets from list.")
+    else:
+        print(f"Scanning for assets in {cfg.data.input_dir}...")  # 打印正在扫描资产目录的信息
+        all_assets = list_assets(cfg.data.input_dir)  # 调用 list_assets 函数获取所有资产列表
+        print(f"Found {len(all_assets)} total assets.")  # 打印找到的资产总数
 
     # Chunking logic
     total_assets = len(all_assets)  # 获取资产总数
@@ -80,9 +89,23 @@ def main():  # 定义主函数
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         
         # Check if exists
-        if os.path.exists(output_file):  # 检查输出文件是否已存在
-             # Maybe add a --force flag? For now skip
-             continue  # 如果存在则跳过（未来可以添加强制覆盖标志）
+        should_process = True
+        if os.path.exists(output_file):
+            try:
+                with open(output_file, 'r', encoding='utf-8') as f:
+                    content = json.load(f)
+                    # Check if it's a "failed" file (has raw_output)
+                    if isinstance(content, dict) and len(content) == 1 and isinstance(list(content.values())[0], dict) and "raw_output" in list(content.values())[0]:
+                        should_process = True
+                        print(f"[INFO] Retrying previously failed asset: {asset_name}")
+                    else:
+                        should_process = False
+            except Exception:
+                # If file is corrupted or empty, reprocess
+                should_process = True
+        
+        if not should_process:
+             continue
 
         result = pipeline.process_asset(asset_path, cfg.prompts.default_type)  # 调用 pipeline 处理资产，获取结果
         
