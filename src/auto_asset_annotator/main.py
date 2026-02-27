@@ -15,6 +15,7 @@ def main():  # 定义主函数
     parser.add_argument("--model_path", help="Override model path")  # 添加 --model_path 参数，用于覆盖模型路径
     parser.add_argument("--prompt_type", help="Override prompt type")  # 添加 --prompt_type 参数，用于覆盖提示词类型
     parser.add_argument("--asset_list_file", help="Override asset list file")
+    parser.add_argument("--force", action="store_true", help="Force re-annotation even if file exists and is valid")
     
     # Chunking args for batch jobs
     parser.add_argument("--num_chunks", type=int, help="Total number of chunks")  # 添加 --num_chunks 参数，指定总的分块数量，用于批处理任务
@@ -90,7 +91,7 @@ def main():  # 定义主函数
         
         # Check if exists
         should_process = True
-        if os.path.exists(output_file):
+        if os.path.exists(output_file) and not args.force:
             try:
                 with open(output_file, 'r', encoding='utf-8') as f:
                     content = json.load(f)
