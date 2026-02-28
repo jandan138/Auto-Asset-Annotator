@@ -93,33 +93,55 @@ class AnnotationPipeline:  # 定义 AnnotationPipeline 类，用于管理标注�
 
     def parse_structured_text(self, text: str) -> Dict[str, str]:
         """
-        Parses text where keys are defined at the start of lines followed by a colon.
-        Handles multi-line values.
+        Parses structured text using regex to find key-value pairs.
+        Robustly handles multi-object outputs by only taking the first occurrence of keys.
         """
         result = {}
-        current_key = None
-        current_value_lines = []
+        # Define expected keys in order of likelihood
+        keys = ["Category", "Description", "Material", "Dimensions", "Mass", "Placement"]
         
-        lines = text.split('\n')
-        # Regex to identify a key at the start of a line.
-        key_pattern = re.compile(r'^([A-Za-z0-9_\s]+):\s*(.*)')
+        # Remove markdown bold/italic markers from keys if present in text for easier matching
+        # But we'll just use a flexible regex.
         
-        for line in lines:
-            match = key_pattern.match(line)
+        for key in keys:
+            # Pattern: 
+            # 1. Key (case insensitive), optional markdown (**Key** or Key:)
+            # 2. Colon
+            # 3. Content (lazy match)
+            # 4. Lookahead for next key or end of string
+            
+            # Simplified approach: Find the key, capture until next known key or double newline or end
+            # Using a specific regex for each key is safer to isolate its value.
+            
+            # Regex explanation:
+            # (?:^|\n)      -> Start of string or new line
+            # [\*#\-]*      -> Optional markdown bullets/headers
+            # \s*           -> Optional whitespace
+            # ({key})       -> The Key itself
+            # \s*:\s*       -> Colon and whitespace
+            # ([\s\S]*?)    -> Capture content (lazy)
+            # (?=           -> Lookahead (stop when...)
+            #   (?:^|\n)[\*#\-]*\s*(?:Category|Description|Material|Dimensions|Mass|Placement)\s*:  -> Next key starts
+            #   | $         -> Or end of string
+            # )
+            
+            pattern = r"(?:^|\n)[\*#\-]*\s*(" + key + r")\s*:\s*([\s\S]*?)(?=(?:^|\n)[\*#\-]*\s*(?:Category|Description|Material|Dimensions|Mass|Placement)\s*:|$)"
+            
+            match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                if current_key:
-                    result[current_key] = '\n'.join(current_value_lines).strip()
-                
-                current_key = match.group(1).strip()
-                first_line_value = match.group(2).strip()
-                current_value_lines = []
-                if first_line_value:
-                    current_value_lines.append(first_line_value)
+                # Store the value, stripped of whitespace
+                value = match.group(2).strip()
+                # Clean up value: remove leading "** " if present (common artifact)
+                value = re.sub(r'^[\*#\-]*\s*', '', value)
+                # Normalize key to lowercase for consistency
+                result[key.lower()] = value
             else:
-                if current_key:
-                    current_value_lines.append(line)
-                    
-        if current_key:
-            result[current_key] = '\n'.join(current_value_lines).strip()
+                # If key missing, set to None/null
+                result[key.lower()] = None
+                
+        # If we found absolutely nothing, return empty dict to trigger raw_output fallback
+        # But if we found at least one field (even if others are None), we consider it a success.
+        if all(v is None for v in result.values()):
+            return {}
             
         return result
