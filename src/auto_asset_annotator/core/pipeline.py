@@ -62,7 +62,7 @@ class AnnotationPipeline:  # 定义 AnnotationPipeline 类，用于管理标注�
             # Parse structured text if expected
             if "json" in prompt_type.lower() or "extract" in prompt_type.lower():  # 如果提示词类型暗示需要结构化输出
                 try:
-                    result = self.parse_structured_text(result_text)
+                    result = self.parse_structured_text_enhanced(result_text)
                     if not result:
                         print(f"[WARN] No structured data found for {asset_id}. Saving raw text.")
                         result = {"raw_output": result_text}
@@ -158,6 +158,98 @@ class AnnotationPipeline:  # 定义 AnnotationPipeline 类，用于管理标注�
             return {}
 
         return result
+
+    def _clean_artifacts(self, text: str) -> str:
+        """
+        Remove model artifacts from output text.
+
+        Handles:
+        - "addCriterion" corruption
+        - "**Image" with only whitespace
+        - Repetition patterns (word repeated 3+ times)
+        """
+        if not text:
+            return text
+
+        # Remove addCriterion artifacts
+        text = re.sub(r'\s*addCriterion:?\s*', ' ', text, flags=re.IGNORECASE)
+
+        # Remove **Image prefix that's not followed by actual content
+        text = re.sub(r'^\*\*Image\s*$', '', text, flags=re.MULTILINE)
+
+        # Remove repetition patterns (same word repeated 3+ times)
+        text = re.sub(r'(\b\w+\b)(\s+\1){3,}', r'\1', text)
+
+        return text.strip()
+
+    def _is_multi_object_output(self, text: str) -> bool:
+        """
+        Detect if output contains multiple objects.
+
+        Patterns detected:
+        - "Object 1:", "Object 2:", etc.
+        - "**Object 1:**" markdown format
+        """
+        if not text:
+            return False
+
+        return bool(re.search(
+            r'(?:^|\n)[\*#\-]*\s*Object\s+\d+',
+            text,
+            re.IGNORECASE
+        ))
+
+    def _extract_first_object(self, text: str) -> str:
+        """
+        Extract only the first object from multi-object output.
+
+        Matches from "Object 1:" or "**Object 1:**" until:
+        - "Object 2:" or
+        - End of text
+        """
+        if not text:
+            return text
+
+        # Pattern 1: Match Object 1 header line and capture everything after until Object 2 or end
+        # Handles both "Object 1:" and "**Object 1: Name**" formats
+        # The [^\n]* matches any text on the same line as Object 1
+        # The \n matches the end of that line
+        # The ([\s\S]*?) captures everything until Object 2 (non-greedy but with lookahead)
+        # Note: Using [ \t]* instead of \s* to avoid matching newlines
+        pattern = r'(?:^|\n)[\*#\-]*[ \t]*\*?[ \t]*Object[ \t]*1:?[ \t]*[^\n]*\n([\s\S]*?)(?=(?:^|\n)[\*#\-]*[ \t]*\*?[ \t]*Object[ \t]*2:|\Z)'
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+        return text
+
+    def parse_structured_text_enhanced(self, text: str) -> Dict[str, str]:
+        """
+        Enhanced parser with artifact cleaning and multi-object support.
+
+        This method:
+        1. Cleans model artifacts from text
+        2. Detects multi-object output and extracts first object
+        3. Parses with original parse_structured_text logic
+
+        Returns empty dict if no structured data can be extracted.
+        """
+        if not text or not text.strip():
+            return {}
+
+        # Step 1: Clean artifacts
+        cleaned_text = self._clean_artifacts(text)
+
+        if not cleaned_text:
+            return {}
+
+        # Step 2: Handle multi-object output
+        if self._is_multi_object_output(cleaned_text):
+            cleaned_text = self._extract_first_object(cleaned_text)
+
+        # Step 3: Parse with original logic
+        return self.parse_structured_text(cleaned_text)
 
     def _normalize_dimensions(self, value: str) -> str:
         """
