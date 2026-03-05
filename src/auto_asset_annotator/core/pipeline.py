@@ -66,6 +66,19 @@ class AnnotationPipeline:  # 定义 AnnotationPipeline 类，用于管理标注�
                     if not result:
                         print(f"[WARN] No structured data found for {asset_id}. Saving raw text.")
                         result = {"raw_output": result_text}
+                    else:
+                        # Extract category from directory path and override
+                        asset_relative_path = os.path.relpath(asset_path, self.config.data.input_dir)
+                        category_from_dir = asset_relative_path.split(os.sep)[0]
+
+                        # Override category with directory name
+                        result['category'] = category_from_dir
+
+                        # Normalize dimensions and mass
+                        if result.get('dimensions'):
+                            result['dimensions'] = self._normalize_dimensions(result['dimensions'])
+                        if result.get('mass'):
+                            result['mass'] = self._normalize_mass(result['mass'])
                 except Exception as e:
                     print(f"[WARN] Failed to parse structured text for {asset_id}: {e}. Saving raw text.")
                     result = {"raw_output": result_text}
@@ -143,5 +156,40 @@ class AnnotationPipeline:  # 定义 AnnotationPipeline 类，用于管理标注�
         # But if we found at least one field (even if others are None), we consider it a success.
         if all(v is None for v in result.values()):
             return {}
-            
+
         return result
+
+    def _normalize_dimensions(self, value: str) -> str:
+        """
+        Normalize dimensions by stripping units and extracting numeric values.
+        Input: "0.30 * 0.30 * 0.05 meters" or "0.5 * 0.15 * 0.01 m"
+        Output: "0.30 * 0.30 * 0.05" or "0.5 * 0.15 * 0.01"
+        """
+        if not value or value == "null":
+            return None
+
+        # Handle multiplication pattern
+        if '*' in value:
+            parts = re.split(r'\s*\*\s*', value)
+            clean_parts = []
+            for part in parts:
+                match = re.search(r'(\d+\.?\d*)', part)
+                if match:
+                    clean_parts.append(match.group(1))
+            return ' * '.join(clean_parts) if clean_parts else value
+
+        # Single value
+        match = re.search(r'(\d+\.?\d*)', value)
+        return match.group(1) if match else value
+
+    def _normalize_mass(self, value: str) -> str:
+        """
+        Normalize mass by stripping units and extracting numeric value.
+        Input: "0.5 kg", "0.05 kilograms", "Estimated mass is 0.1 kg."
+        Output: "0.5", "0.05", "0.1"
+        """
+        if not value or value == "null":
+            return None
+
+        match = re.search(r'(\d+\.?\d*)', value)
+        return match.group(1) if match else value
