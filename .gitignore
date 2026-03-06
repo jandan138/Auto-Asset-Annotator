@@ -46,3 +46,23 @@ test_data/
 # Temporary Lists & Scripts
 failed_assets*.txt
 test_env.sh
+
+# Asset list files generated during annotation runs
+*_assets*.txt
+still_failed*.txt
+stubborn*.txt
+success*.txt
+
+# Empty file artifacts
+EOF
+ENDOFFILE
+
+# Build artifacts
+dlc
+
+# Test output directories
+output_dlc_test/
+
+# Local Claude settings
+.claude/.efc_*.json
+.claude/settings.local.json

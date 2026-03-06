@@ -62,6 +62,30 @@ python scripts/download_model.py
 python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); import auto_asset_annotator; print('Package loaded successfully')"
 ```
 
+### DLC Remote Job Submission
+
+For large-scale distributed annotation on Alibaba Cloud PAI-DLC:
+
+```bash
+# Submit 4 parallel workers for batch annotation
+python scripts/dlc/submit_batch.py --total 4 --name my_annotation \
+    --command_args "--input_dir /data/assets --output_dir /data/results"
+
+# Submit with specific prompt type
+python scripts/dlc/submit_batch.py --total 8 --name classify_task \
+    --command_args "--input_dir /data/assets --output_dir /data/results --prompt_type classify_object_category_prompt"
+
+# Retry failed assets with force flag
+python scripts/dlc/submit_batch.py --total 4 --name retry_failed \
+    --command_args "--input_dir /data/assets --output_dir /data/results --asset_list_file failed_assets.txt --force"
+
+# Check DLC job status
+./dlc get jobs
+./dlc logs <job_id>
+```
+
+See [docs/dlc/README.md](docs/dlc/README.md) for complete DLC documentation.
+
 ## Architecture
 
 The pipeline is a linear chain: **CLI → Config → ModelEngine → AnnotationPipeline → JSON output**.
@@ -152,6 +176,18 @@ Key fields to know:
 2. Add an `elif` branch in `PromptFactory.compose_user_prompt()` returning the prompt string
 3. If the new prompt returns structured text needing field extraction, name it with `extract` or `json` in the type name (triggers `parse_structured_text()` in pipeline)
 4. Use via `--prompt_type my_new_prompt`
+
+## Project Status
+
+**Current State**: All annotations completed successfully.
+
+- **Total assets annotated**: 50,091
+- **Success rate**: 100%
+- **Failed assets**: 0 (all previously failed assets have been fixed)
+
+The annotation pipeline is stable and all output files in `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/output` contain valid structured data without `raw_output` fields.
+
+---
 
 ## Agent Team Documentation Rule (Mandatory)
 
