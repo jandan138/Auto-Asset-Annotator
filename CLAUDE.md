@@ -201,9 +201,9 @@ Key fields to know:
 - **Description completion**: 100% (52,907/52,907)
 
 Field completion rates (after default filling):
-- description: 100%, material: 100%, mass: 100%, placement: 100%, dimensions: 96.4% (1,911 intentionally empty)
+- description: 100%, material: 100%, mass: 100%, placement: 100%, dimensions: 100%
 
-Dimensions are not filled with defaults because they are model-specific and cannot be generalized from category alone.
+All 5 fields are 100% complete. Dimensions were filled using per-category median values from existing annotations.
 
 The annotation pipeline is stable and all output files in `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/output` contain valid structured data without `raw_output` fields.
 
