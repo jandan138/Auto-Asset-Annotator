@@ -30,6 +30,9 @@ python -m auto_asset_annotator.main --prompt_type classify_object_category_promp
 # Force re-annotation even if output already exists
 python -m auto_asset_annotator.main --input_dir /data/assets --output_dir /data/results --force
 
+# Re-annotate only assets with empty physical property fields
+python -m auto_asset_annotator.main --input_dir /data/assets --output_dir /data/results --retry_incomplete
+
 # Use a pre-built asset list file instead of scanning
 python -m auto_asset_annotator.main --asset_list_file failed_assets.txt --output_dir ./output
 
@@ -52,6 +55,18 @@ python scripts/find_success_assets.py --output_dir ./output --save_list success_
 
 # Find failed assets (has "raw_output" field indicating parse failure)
 python scripts/find_failed_assets.py --output_dir ./output --save_list failed_assets.txt
+
+# Find assets with incomplete/empty physical property fields
+python scripts/find_incomplete_assets.py --output_dir ./output --save_list incomplete_assets.txt
+python scripts/find_incomplete_assets.py --output_dir ./output --save_list incomplete_assets.txt --strict --stats
+
+# Merge re-annotated results into existing annotations (selective field fill)
+python scripts/merge_annotations.py --old_dir ./output --new_dir ./output_reannotate           # dry-run
+python scripts/merge_annotations.py --old_dir ./output --new_dir ./output_reannotate --apply   # apply
+
+# Fill empty physical properties with category-based defaults (material, mass, placement)
+python scripts/fill_defaults.py --output_dir ./output --asset_list remaining_incomplete.txt           # dry-run
+python scripts/fill_defaults.py --output_dir ./output --asset_list remaining_incomplete.txt --apply   # apply
 
 # Download model from hf-mirror.com (for China users)
 python scripts/download_model.py
@@ -179,11 +194,16 @@ Key fields to know:
 
 ## Project Status
 
-**Current State**: All annotations completed successfully.
+**Current State**: All annotations completed. Physical property defaults filled.
 
-- **Total assets annotated**: 50,091
-- **Success rate**: 100%
-- **Failed assets**: 0 (all previously failed assets have been fixed)
+- **Total assets annotated**: 52,907 (50,091 original + 2,816 backfilled)
+- **Parse success rate**: 100% (0 `raw_output` failures)
+- **Description completion**: 100% (52,907/52,907)
+
+Field completion rates (after default filling):
+- description: 100%, material: 100%, mass: 100%, placement: 100%, dimensions: 96.4% (1,911 intentionally empty)
+
+Dimensions are not filled with defaults because they are model-specific and cannot be generalized from category alone.
 
 The annotation pipeline is stable and all output files in `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/output` contain valid structured data without `raw_output` fields.
 

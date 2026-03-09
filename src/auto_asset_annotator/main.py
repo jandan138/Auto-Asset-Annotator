@@ -16,6 +16,7 @@ def main():  # 定义主函数
     parser.add_argument("--prompt_type", help="Override prompt type")  # 添加 --prompt_type 参数，用于覆盖提示词类型
     parser.add_argument("--asset_list_file", help="Override asset list file")
     parser.add_argument("--force", action="store_true", help="Force re-annotation even if file exists and is valid")
+    parser.add_argument("--retry_incomplete", action="store_true", help="Re-annotate assets with empty physical property fields")
     
     # Chunking args for batch jobs
     parser.add_argument("--num_chunks", type=int, help="Total number of chunks")  # 添加 --num_chunks 参数，指定总的分块数量，用于批处理任务
@@ -99,6 +100,19 @@ def main():  # 定义主函数
                     if isinstance(content, dict) and len(content) == 1 and isinstance(list(content.values())[0], dict) and "raw_output" in list(content.values())[0]:
                         should_process = True
                         print(f"[INFO] Retrying previously failed asset: {asset_name}")
+                    elif args.retry_incomplete:
+                        val = list(content.values())[0]
+                        if isinstance(val, dict):
+                            for field in ["material", "dimensions", "mass", "placement"]:
+                                fv = val.get(field)
+                                if fv is None or (isinstance(fv, str) and fv.strip() == "") or (isinstance(fv, list) and len(fv) == 0):
+                                    should_process = True
+                                    print(f"[INFO] Retrying asset with empty fields: {asset_name}")
+                                    break
+                            else:
+                                should_process = False
+                        else:
+                            should_process = False
                     else:
                         should_process = False
             except Exception:
