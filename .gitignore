@@ -39,12 +39,16 @@ ENV/
 
 # Project Specific
 output/
+output_reannotate/
 test_output/
 test_data/
 *.log
 
 # Temporary Lists & Scripts
 failed_assets*.txt
+remaining_incomplete.txt
+final_remaining.txt
+verify_remaining.txt
 test_env.sh
 
 # Asset list files generated during annotation runs
@@ -66,3 +70,4 @@ output_dlc_test/
 # Local Claude settings
 .claude/.efc_*.json
 .claude/settings.local.json
+.claude/agent-memory/
