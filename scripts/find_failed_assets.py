@@ -1,30 +1,47 @@
 import os
 import json
 import argparse
+from pathlib import Path
 from tqdm import tqdm
+
+
+DEFAULT_SAVE_LIST = "archive/temp_lists/failed_assets.txt"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def resolve_save_list_path(save_list):
+    path = Path(save_list)
+    if not path.is_absolute() and save_list == DEFAULT_SAVE_LIST:
+        path = REPO_ROOT / path
+    return path
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_dir", required=True)
-    parser.add_argument("--save_list", default="failed_assets.txt")
+    parser.add_argument("--save_list", default=DEFAULT_SAVE_LIST)
     args = parser.parse_args()
+    save_list_path = resolve_save_list_path(args.save_list)
 
     failed_assets = []
-    
+
     print(f"Scanning {args.output_dir}...")
-    
+
     for root, dirs, files in os.walk(args.output_dir):
         for file in files:
             if file.endswith("_annotation.json"):
                 full_path = os.path.join(root, file)
                 try:
-                    with open(full_path, 'r', encoding='utf-8') as f:
+                    with open(full_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         # Check failure criteria: has "raw_output" inside
                         if isinstance(data, dict):
                             # Usually data is { "asset_id": { ... } }
                             first_val = list(data.values())[0]
-                            if isinstance(first_val, dict) and "raw_output" in first_val:
+                            if (
+                                isinstance(first_val, dict)
+                                and "raw_output" in first_val
+                            ):
                                 # Construct relative asset path from filename or json key
                                 # Asset ID is usually the key, e.g. "basket/123"
                                 asset_id = list(data.keys())[0]
@@ -39,17 +56,20 @@ def main():
                     else:
                         failed_assets.append(os.path.join(rel_dir, asset_name))
 
-    with open(args.save_list, "w") as f:
+    save_list_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with save_list_path.open("w") as f:
         for asset in failed_assets:
             f.write(f"{asset}\n")
-            
+
     print(f"Found {len(failed_assets)} failed assets.")
-    print(f"List saved to {args.save_list}")
-    
+    print(f"List saved to {save_list_path}")
+
     # Preview
     print("\nPreview of failed assets:")
     for a in failed_assets[:5]:
         print(f" - {a}")
+
 
 if __name__ == "__main__":
     main()

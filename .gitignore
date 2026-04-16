@@ -36,6 +36,7 @@ ENV/
 *.swp
 *.swo
 .trae/
+.worktrees/
 
 # Project Specific
 output/
@@ -56,6 +57,11 @@ test_env.sh
 still_failed*.txt
 stubborn*.txt
 success*.txt
+!archive/temp_lists/failed_assets.txt
+!archive/temp_lists/incomplete_assets.txt
+!archive/temp_lists/remaining_incomplete.txt
+!archive/temp_lists/verify_remaining.txt
+!archive/temp_lists/final_remaining.txt
 
 # Empty file artifacts
 EOF

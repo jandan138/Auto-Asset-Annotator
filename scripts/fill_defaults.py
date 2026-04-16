@@ -10,20 +10,21 @@ Dimensions are NOT filled by default (too model-specific to generalize).
 
 Usage:
     # Dry-run (default): show what would change
-    python scripts/fill_defaults.py --output_dir ./output --asset_list remaining_incomplete.txt
+    python scripts/fill_defaults.py --output_dir ./output --asset_list archive/temp_lists/remaining_incomplete.txt
 
     # Apply changes
-    python scripts/fill_defaults.py --output_dir ./output --asset_list remaining_incomplete.txt --apply
+    python scripts/fill_defaults.py --output_dir ./output --asset_list archive/temp_lists/remaining_incomplete.txt --apply
 
     # Also fill dimensions (optional)
-    python scripts/fill_defaults.py --output_dir ./output --asset_list remaining_incomplete.txt --apply --fill_dimensions
+    python scripts/fill_defaults.py --output_dir ./output --asset_list archive/temp_lists/remaining_incomplete.txt --apply --fill_dimensions
 """
+
 import os
 import re
 import json
 import argparse
 
-MASS_PATTERN = re.compile(r'^\d+\.?\d*$')
+MASS_PATTERN = re.compile(r"^\d+\.?\d*$")
 
 # Default values per category, derived from statistical analysis of 50k+ annotations.
 # material: most common material description for the category
@@ -32,72 +33,324 @@ MASS_PATTERN = re.compile(r'^\d+\.?\d*$')
 # placement: most common placement value
 CATEGORY_DEFAULTS = {
     # Structural elements
-    "wall":       {"material": "Plaster or concrete",            "mass": "0.05", "dimensions": "0.15 * 0.15 * 0.05", "placement": "OnFloor"},
-    "ground":     {"material": "Concrete or tile",               "mass": "0.05", "dimensions": "0.1 * 0.1 * 0.05",   "placement": "OnFloor"},
-    "ceiling":    {"material": "Plaster",                        "mass": "0.05", "dimensions": "0.15 * 0.15 * 0.05", "placement": "OnCeiling"},
-    "column":     {"material": "Concrete or stone",              "mass": "0.05", "dimensions": "0.15 * 0.1 * 0.09",  "placement": "OnFloor"},
-    "threshold":  {"material": "Wood or metal",                  "mass": "0.1",  "dimensions": "0.25 * 0.1 * 0.05",  "placement": "OnFloor"},
-
+    "wall": {
+        "material": "Plaster or concrete",
+        "mass": "0.05",
+        "dimensions": "0.15 * 0.15 * 0.05",
+        "placement": "OnFloor",
+    },
+    "ground": {
+        "material": "Concrete or tile",
+        "mass": "0.05",
+        "dimensions": "0.1 * 0.1 * 0.05",
+        "placement": "OnFloor",
+    },
+    "ceiling": {
+        "material": "Plaster",
+        "mass": "0.05",
+        "dimensions": "0.15 * 0.15 * 0.05",
+        "placement": "OnCeiling",
+    },
+    "column": {
+        "material": "Concrete or stone",
+        "mass": "0.05",
+        "dimensions": "0.15 * 0.1 * 0.09",
+        "placement": "OnFloor",
+    },
+    "threshold": {
+        "material": "Wood or metal",
+        "mass": "0.1",
+        "dimensions": "0.25 * 0.1 * 0.05",
+        "placement": "OnFloor",
+    },
     # Architectural components
-    "door":       {"material": "Wood",                           "mass": "10.0", "dimensions": "0.9 * 0.3 * 0.05",   "placement": "OnWall"},
-    "window":     {"material": "Aluminum and glass",             "mass": "10.0", "dimensions": "0.8 * 0.5 * 0.1",    "placement": "OnWall"},
-    "curtain":    {"material": "Fabric",                         "mass": "0.2",  "dimensions": "0.5 * 0.1 * 0.1",    "placement": "OnWall"},
-    "mirror":     {"material": "Glass and metal frame",          "mass": "1.0",  "dimensions": "0.28 * 0.2 * 0.05",  "placement": "OnWall"},
-    "hearth":     {"material": "Brick or stone",                 "mass": "5.0",  "dimensions": "0.5 * 0.4 * 0.05",   "placement": "OnFloor"},
-
+    "door": {
+        "material": "Wood",
+        "mass": "10.0",
+        "dimensions": "0.9 * 0.3 * 0.05",
+        "placement": "OnWall",
+    },
+    "window": {
+        "material": "Aluminum and glass",
+        "mass": "10.0",
+        "dimensions": "0.8 * 0.5 * 0.1",
+        "placement": "OnWall",
+    },
+    "curtain": {
+        "material": "Fabric",
+        "mass": "0.2",
+        "dimensions": "0.5 * 0.1 * 0.1",
+        "placement": "OnWall",
+    },
+    "mirror": {
+        "material": "Glass and metal frame",
+        "mass": "1.0",
+        "dimensions": "0.28 * 0.2 * 0.05",
+        "placement": "OnWall",
+    },
+    "hearth": {
+        "material": "Brick or stone",
+        "mass": "5.0",
+        "dimensions": "0.5 * 0.4 * 0.05",
+        "placement": "OnFloor",
+    },
     # Containers / tableware
-    "bottle":     {"material": "Plastic (PET)",                  "mass": "0.15", "dimensions": "0.15 * 0.15 * 0.2",  "placement": "OnTable"},
-    "cup":        {"material": "Ceramic",                        "mass": "0.2",  "dimensions": "0.15 * 0.15 * 0.1",  "placement": "OnTable"},
-    "plate":      {"material": "Ceramic",                        "mass": "0.05", "dimensions": "0.15 * 0.15 * 0.05", "placement": "OnTable"},
-    "pot":        {"material": "Metal",                          "mass": "0.5",  "dimensions": "0.25 * 0.25 * 0.15", "placement": "OnTable"},
-    "pan":        {"material": "Metal",                          "mass": "0.3",  "dimensions": "0.3 * 0.3 * 0.15",   "placement": "OnTable"},
-    "tray":       {"material": "Plastic or metal",               "mass": "0.2",  "dimensions": "0.3 * 0.2 * 0.05",   "placement": "OnTable"},
-    "trash_can":  {"material": "Plastic",                        "mass": "0.5",  "dimensions": "0.3 * 0.25 * 0.25",  "placement": "OnFloor"},
-
+    "bottle": {
+        "material": "Plastic (PET)",
+        "mass": "0.15",
+        "dimensions": "0.15 * 0.15 * 0.2",
+        "placement": "OnTable",
+    },
+    "cup": {
+        "material": "Ceramic",
+        "mass": "0.2",
+        "dimensions": "0.15 * 0.15 * 0.1",
+        "placement": "OnTable",
+    },
+    "plate": {
+        "material": "Ceramic",
+        "mass": "0.05",
+        "dimensions": "0.15 * 0.15 * 0.05",
+        "placement": "OnTable",
+    },
+    "pot": {
+        "material": "Metal",
+        "mass": "0.5",
+        "dimensions": "0.25 * 0.25 * 0.15",
+        "placement": "OnTable",
+    },
+    "pan": {
+        "material": "Metal",
+        "mass": "0.3",
+        "dimensions": "0.3 * 0.3 * 0.15",
+        "placement": "OnTable",
+    },
+    "tray": {
+        "material": "Plastic or metal",
+        "mass": "0.2",
+        "dimensions": "0.3 * 0.2 * 0.05",
+        "placement": "OnTable",
+    },
+    "trash_can": {
+        "material": "Plastic",
+        "mass": "0.5",
+        "dimensions": "0.3 * 0.25 * 0.25",
+        "placement": "OnFloor",
+    },
     # Furniture
-    "cabinet":    {"material": "Wood or MDF",                    "mass": "5.0",  "dimensions": "0.5 * 0.5 * 0.2",    "placement": "OnFloor"},
-    "shelf":      {"material": "Wood or metal",                  "mass": "2.0",  "dimensions": "0.5 * 0.3 * 0.2",    "placement": "OnWall"},
-    "book_shelf": {"material": "Wood or MDF",                    "mass": "5.0",  "dimensions": "0.5 * 0.5 * 0.5",    "placement": "OnFloor"},
-    "table":      {"material": "Wood",                           "mass": "5.0",  "dimensions": "0.75 * 0.5 * 0.4",   "placement": "OnFloor"},
-    "desk":       {"material": "Wood or MDF",                    "mass": "5.0",  "dimensions": "1.0 * 0.5 * 0.75",   "placement": "OnFloor"},
-    "counter":    {"material": "Wood or stone",                  "mass": "5.0",  "dimensions": "0.5 * 0.5 * 0.2",    "placement": "OnFloor"},
-    "couch":      {"material": "Fabric and wood frame",          "mass": "15.0", "dimensions": "2.0 * 0.8 * 0.8",    "placement": "OnFloor"},
-    "sofa_chair": {"material": "Fabric and wood frame",          "mass": "10.0", "dimensions": "0.8 * 0.8 * 0.8",    "placement": "OnFloor"},
-    "stool":      {"material": "Wood or metal",                  "mass": "2.0",  "dimensions": "0.5 * 0.5 * 0.35",   "placement": "OnFloor"},
-    "bed":        {"material": "Wood frame with fabric mattress","mass": "20.0", "dimensions": "1.5 * 1.0 * 0.2",    "placement": "OnFloor"},
-    "chest_of_drawers": {"material": "Wood or MDF",              "mass": "10.0", "dimensions": "0.5 * 0.5 * 0.5",    "placement": "OnFloor"},
-
+    "cabinet": {
+        "material": "Wood or MDF",
+        "mass": "5.0",
+        "dimensions": "0.5 * 0.5 * 0.2",
+        "placement": "OnFloor",
+    },
+    "shelf": {
+        "material": "Wood or metal",
+        "mass": "2.0",
+        "dimensions": "0.5 * 0.3 * 0.2",
+        "placement": "OnWall",
+    },
+    "book_shelf": {
+        "material": "Wood or MDF",
+        "mass": "5.0",
+        "dimensions": "0.5 * 0.5 * 0.5",
+        "placement": "OnFloor",
+    },
+    "table": {
+        "material": "Wood",
+        "mass": "5.0",
+        "dimensions": "0.75 * 0.5 * 0.4",
+        "placement": "OnFloor",
+    },
+    "desk": {
+        "material": "Wood or MDF",
+        "mass": "5.0",
+        "dimensions": "1.0 * 0.5 * 0.75",
+        "placement": "OnFloor",
+    },
+    "counter": {
+        "material": "Wood or stone",
+        "mass": "5.0",
+        "dimensions": "0.5 * 0.5 * 0.2",
+        "placement": "OnFloor",
+    },
+    "couch": {
+        "material": "Fabric and wood frame",
+        "mass": "15.0",
+        "dimensions": "2.0 * 0.8 * 0.8",
+        "placement": "OnFloor",
+    },
+    "sofa_chair": {
+        "material": "Fabric and wood frame",
+        "mass": "10.0",
+        "dimensions": "0.8 * 0.8 * 0.8",
+        "placement": "OnFloor",
+    },
+    "stool": {
+        "material": "Wood or metal",
+        "mass": "2.0",
+        "dimensions": "0.5 * 0.5 * 0.35",
+        "placement": "OnFloor",
+    },
+    "bed": {
+        "material": "Wood frame with fabric mattress",
+        "mass": "20.0",
+        "dimensions": "1.5 * 1.0 * 0.2",
+        "placement": "OnFloor",
+    },
+    "chest_of_drawers": {
+        "material": "Wood or MDF",
+        "mass": "10.0",
+        "dimensions": "0.5 * 0.5 * 0.5",
+        "placement": "OnFloor",
+    },
     # Electronics
-    "tv":         {"material": "Plastic and glass",              "mass": "5.0",  "dimensions": "0.3 * 0.25 * 0.05",  "placement": "OnWall"},
-    "monitor":    {"material": "Plastic and glass",              "mass": "3.0",  "dimensions": "0.55 * 0.3 * 0.1",   "placement": "OnTable"},
-    "telephone":  {"material": "Plastic",                        "mass": "0.2",  "dimensions": "0.3 * 0.25 * 0.1",   "placement": "OnTable"},
-    "microwave":  {"material": "Metal and plastic",              "mass": "10.0", "dimensions": "0.3 * 0.3 * 0.2",    "placement": "OnTable"},
-    "fan":        {"material": "Plastic and metal",              "mass": "2.0",  "dimensions": "0.25 * 0.25 * 0.1",  "placement": "OnFloor"},
-
+    "tv": {
+        "material": "Plastic and glass",
+        "mass": "5.0",
+        "dimensions": "0.3 * 0.25 * 0.05",
+        "placement": "OnWall",
+    },
+    "monitor": {
+        "material": "Plastic and glass",
+        "mass": "3.0",
+        "dimensions": "0.55 * 0.3 * 0.1",
+        "placement": "OnTable",
+    },
+    "telephone": {
+        "material": "Plastic",
+        "mass": "0.2",
+        "dimensions": "0.3 * 0.25 * 0.1",
+        "placement": "OnTable",
+    },
+    "microwave": {
+        "material": "Metal and plastic",
+        "mass": "10.0",
+        "dimensions": "0.3 * 0.3 * 0.2",
+        "placement": "OnTable",
+    },
+    "fan": {
+        "material": "Plastic and metal",
+        "mass": "2.0",
+        "dimensions": "0.25 * 0.25 * 0.1",
+        "placement": "OnFloor",
+    },
     # Household items
-    "book":       {"material": "Paper and cardboard",            "mass": "0.5",  "dimensions": "0.25 * 0.25 * 0.05", "placement": "OnTable"},
-    "pen":        {"material": "Plastic",                        "mass": "0.01", "dimensions": "0.15 * 0.15 * 0.05", "placement": "OnTable"},
-    "pillow":     {"material": "Fabric (cotton or polyester)",   "mass": "0.5",  "dimensions": "0.5 * 0.3 * 0.1",    "placement": "OnTable"},
-    "blanket":    {"material": "Fabric (cotton)",                "mass": "1.0",  "dimensions": "0.5 * 0.5 * 0.05",   "placement": "OnTable"},
-    "towel":      {"material": "Cotton fabric",                  "mass": "0.3",  "dimensions": "0.5 * 0.3 * 0.05",   "placement": "OnTable"},
-    "toy":        {"material": "Plastic",                        "mass": "0.1",  "dimensions": "0.15 * 0.15 * 0.1",  "placement": "OnTable"},
-    "plant":      {"material": "Synthetic leaves, ceramic pot",  "mass": "0.2",  "dimensions": "0.15 * 0.15 * 0.2",  "placement": "OnTable"},
-    "picture":    {"material": "Paper and wood frame",           "mass": "0.5",  "dimensions": "0.3 * 0.2 * 0.05",   "placement": "OnWall"},
-    "decoration": {"material": "Mixed materials",                "mass": "0.2",  "dimensions": "0.15 * 0.15 * 0.1",  "placement": "OnTable"},
-    "person":     {"material": "Fabric (textured)",              "mass": "60.0", "dimensions": "0.5 * 0.5 * 0.5",    "placement": "OnFloor"},
-    "faucet":     {"material": "Metal (chrome-plated)",          "mass": "0.2",  "dimensions": "0.23 * 0.15 * 0.05", "placement": "OnWall"},
-    "light":      {"material": "Metal and glass",                "mass": "1.0",  "dimensions": "0.28 * 0.15 * 0.1",  "placement": "OnCeiling"},
-    "lamp":       {"material": "Metal and fabric shade",         "mass": "1.0",  "dimensions": "0.3 * 0.23 * 0.2",   "placement": "OnTable"},
-    "clock":      {"material": "Plastic and metal",              "mass": "0.5",  "dimensions": "0.15 * 0.15 * 0.05", "placement": "OnWall"},
-    "clothes":    {"material": "Fabric",                         "mass": "0.3",  "dimensions": "0.5 * 0.5 * 0.1",    "placement": "OnTable"},
-    "shoe":       {"material": "Leather or synthetic",           "mass": "0.3",  "dimensions": "0.25 * 0.15 * 0.05", "placement": "OnFloor"},
-
+    "book": {
+        "material": "Paper and cardboard",
+        "mass": "0.5",
+        "dimensions": "0.25 * 0.25 * 0.05",
+        "placement": "OnTable",
+    },
+    "pen": {
+        "material": "Plastic",
+        "mass": "0.01",
+        "dimensions": "0.15 * 0.15 * 0.05",
+        "placement": "OnTable",
+    },
+    "pillow": {
+        "material": "Fabric (cotton or polyester)",
+        "mass": "0.5",
+        "dimensions": "0.5 * 0.3 * 0.1",
+        "placement": "OnTable",
+    },
+    "blanket": {
+        "material": "Fabric (cotton)",
+        "mass": "1.0",
+        "dimensions": "0.5 * 0.5 * 0.05",
+        "placement": "OnTable",
+    },
+    "towel": {
+        "material": "Cotton fabric",
+        "mass": "0.3",
+        "dimensions": "0.5 * 0.3 * 0.05",
+        "placement": "OnTable",
+    },
+    "toy": {
+        "material": "Plastic",
+        "mass": "0.1",
+        "dimensions": "0.15 * 0.15 * 0.1",
+        "placement": "OnTable",
+    },
+    "plant": {
+        "material": "Synthetic leaves, ceramic pot",
+        "mass": "0.2",
+        "dimensions": "0.15 * 0.15 * 0.2",
+        "placement": "OnTable",
+    },
+    "picture": {
+        "material": "Paper and wood frame",
+        "mass": "0.5",
+        "dimensions": "0.3 * 0.2 * 0.05",
+        "placement": "OnWall",
+    },
+    "decoration": {
+        "material": "Mixed materials",
+        "mass": "0.2",
+        "dimensions": "0.15 * 0.15 * 0.1",
+        "placement": "OnTable",
+    },
+    "person": {
+        "material": "Fabric (textured)",
+        "mass": "60.0",
+        "dimensions": "0.5 * 0.5 * 0.5",
+        "placement": "OnFloor",
+    },
+    "faucet": {
+        "material": "Metal (chrome-plated)",
+        "mass": "0.2",
+        "dimensions": "0.23 * 0.15 * 0.05",
+        "placement": "OnWall",
+    },
+    "light": {
+        "material": "Metal and glass",
+        "mass": "1.0",
+        "dimensions": "0.28 * 0.15 * 0.1",
+        "placement": "OnCeiling",
+    },
+    "lamp": {
+        "material": "Metal and fabric shade",
+        "mass": "1.0",
+        "dimensions": "0.3 * 0.23 * 0.2",
+        "placement": "OnTable",
+    },
+    "clock": {
+        "material": "Plastic and metal",
+        "mass": "0.5",
+        "dimensions": "0.15 * 0.15 * 0.05",
+        "placement": "OnWall",
+    },
+    "clothes": {
+        "material": "Fabric",
+        "mass": "0.3",
+        "dimensions": "0.5 * 0.5 * 0.1",
+        "placement": "OnTable",
+    },
+    "shoe": {
+        "material": "Leather or synthetic",
+        "mass": "0.3",
+        "dimensions": "0.25 * 0.15 * 0.05",
+        "placement": "OnFloor",
+    },
     # Catch-all fallback
-    "_default":   {"material": "Mixed materials",                "mass": "0.1",  "dimensions": "0.15 * 0.15 * 0.05", "placement": "OnTable"},
+    "_default": {
+        "material": "Mixed materials",
+        "mass": "0.1",
+        "dimensions": "0.15 * 0.15 * 0.05",
+        "placement": "OnTable",
+    },
 }
 
 # Values that should be treated as invalid for mass (non-numeric placeholders)
-INVALID_MASS_VALUES = {"n/a", "unknown", "varies", "variable", "not applicable", "none", "-"}
+INVALID_MASS_VALUES = {
+    "n/a",
+    "unknown",
+    "varies",
+    "variable",
+    "not applicable",
+    "none",
+    "-",
+}
 
 
 def is_field_empty(value):
@@ -133,14 +386,22 @@ def main():
     parser = argparse.ArgumentParser(
         description="Fill empty physical property fields with category-based defaults"
     )
-    parser.add_argument("--output_dir", required=True,
-                        help="Annotation output directory to update")
-    parser.add_argument("--asset_list", required=True,
-                        help="File listing incomplete assets (one per line: category/asset_id)")
-    parser.add_argument("--apply", action="store_true",
-                        help="Actually write changes (default: dry-run)")
-    parser.add_argument("--fill_dimensions", action="store_true",
-                        help="Also fill dimensions field (disabled by default)")
+    parser.add_argument(
+        "--output_dir", required=True, help="Annotation output directory to update"
+    )
+    parser.add_argument(
+        "--asset_list",
+        required=True,
+        help="File listing incomplete assets (one per line: category/asset_id)",
+    )
+    parser.add_argument(
+        "--apply", action="store_true", help="Actually write changes (default: dry-run)"
+    )
+    parser.add_argument(
+        "--fill_dimensions",
+        action="store_true",
+        help="Also fill dimensions field (disabled by default)",
+    )
     args = parser.parse_args()
 
     # Read asset list
@@ -170,7 +431,9 @@ def main():
             continue
 
         category, uuid = parts
-        annotation_file = os.path.join(args.output_dir, category, f"{uuid}_annotation.json")
+        annotation_file = os.path.join(
+            args.output_dir, category, f"{uuid}_annotation.json"
+        )
 
         if not os.path.exists(annotation_file):
             not_found_count += 1
@@ -216,7 +479,9 @@ def main():
 
         if changed:
             updated_count += 1
-            category_update_counts[category] = category_update_counts.get(category, 0) + 1
+            category_update_counts[category] = (
+                category_update_counts.get(category, 0) + 1
+            )
 
             if args.apply:
                 data[key] = ann
@@ -237,11 +502,15 @@ def main():
         print(f"  {field}: {count}")
 
     if missing_category_defaults:
-        print(f"\nCategories using _default fallback: {sorted(missing_category_defaults)}")
+        print(
+            f"\nCategories using _default fallback: {sorted(missing_category_defaults)}"
+        )
 
     if category_update_counts:
         print(f"\nPer-category updates (top 20):")
-        sorted_cats = sorted(category_update_counts.items(), key=lambda x: x[1], reverse=True)
+        sorted_cats = sorted(
+            category_update_counts.items(), key=lambda x: x[1], reverse=True
+        )
         for cat, count in sorted_cats[:20]:
             using_fallback = " (fallback)" if cat in missing_category_defaults else ""
             print(f"  {cat}: {count}{using_fallback}")

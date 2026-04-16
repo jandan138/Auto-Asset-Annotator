@@ -8,18 +8,30 @@ Scans annotation files and identifies assets where physical property fields
 Output format matches find_failed_assets.py — one asset per line (category/asset_id),
 compatible with --asset_list_file parameter for re-annotation.
 """
+
 import os
 import re
 import json
 import argparse
+from pathlib import Path
 from tqdm import tqdm
 
 
 # Valid dimensions: "X * Y * Z" with numeric values
-DIMENSIONS_PATTERN = re.compile(r'^\d+\.?\d*\s*\*\s*\d+\.?\d*\s*\*\s*\d+\.?\d*$')
+DIMENSIONS_PATTERN = re.compile(r"^\d+\.?\d*\s*\*\s*\d+\.?\d*\s*\*\s*\d+\.?\d*$")
 
 # Valid mass: purely numeric
-MASS_PATTERN = re.compile(r'^\d+\.?\d*$')
+MASS_PATTERN = re.compile(r"^\d+\.?\d*$")
+
+DEFAULT_SAVE_LIST = "archive/temp_lists/incomplete_assets.txt"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def resolve_save_list_path(save_list):
+    path = Path(save_list)
+    if not path.is_absolute() and save_list == DEFAULT_SAVE_LIST:
+        path = REPO_ROOT / path
+    return path
 
 
 def is_field_empty(value):
@@ -55,15 +67,24 @@ def main():
     parser = argparse.ArgumentParser(
         description="Find assets with incomplete annotation fields"
     )
-    parser.add_argument("--output_dir", required=True,
-                        help="Annotation output directory to scan")
-    parser.add_argument("--save_list", default="incomplete_assets.txt",
-                        help="Output file for incomplete asset list (default: incomplete_assets.txt)")
-    parser.add_argument("--strict", action="store_true",
-                        help="Also flag assets with invalid dimensions/mass format")
-    parser.add_argument("--stats", action="store_true",
-                        help="Print detailed statistics by category")
+    parser.add_argument(
+        "--output_dir", required=True, help="Annotation output directory to scan"
+    )
+    parser.add_argument(
+        "--save_list",
+        default=DEFAULT_SAVE_LIST,
+        help="Output file for incomplete asset list (default: archive/temp_lists/incomplete_assets.txt)",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Also flag assets with invalid dimensions/mass format",
+    )
+    parser.add_argument(
+        "--stats", action="store_true", help="Print detailed statistics by category"
+    )
     args = parser.parse_args()
+    save_list_path = resolve_save_list_path(args.save_list)
 
     incomplete_assets = []
     total_files = 0
@@ -80,13 +101,15 @@ def main():
 
             full_path = os.path.join(root, file)
             try:
-                with open(full_path, 'r', encoding='utf-8') as f:
+                with open(full_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
             except Exception:
                 # Corrupted file — treat as incomplete
                 rel_dir = os.path.relpath(root, args.output_dir)
                 asset_name = file.replace("_annotation.json", "")
-                asset_id = os.path.join(rel_dir, asset_name) if rel_dir != "." else asset_name
+                asset_id = (
+                    os.path.join(rel_dir, asset_name) if rel_dir != "." else asset_name
+                )
                 incomplete_assets.append(asset_id)
                 continue
 
@@ -134,14 +157,16 @@ def main():
                 category_counts[category]["incomplete"] += 1
 
     # Save list
-    with open(args.save_list, "w") as f:
+    save_list_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with save_list_path.open("w") as f:
         for asset in incomplete_assets:
             f.write(f"{asset}\n")
 
     # Report
     print(f"\nTotal annotation files scanned: {total_files}")
     print(f"Incomplete assets found: {len(incomplete_assets)}")
-    print(f"List saved to {args.save_list}")
+    print(f"List saved to {save_list_path}")
 
     print(f"\nEmpty field counts:")
     for field, count in field_empty_counts.items():
@@ -154,10 +179,15 @@ def main():
 
     if args.stats and category_counts:
         print(f"\nPer-category breakdown (top 20 by incomplete count):")
-        sorted_cats = sorted(category_counts.items(),
-                             key=lambda x: x[1]["incomplete"], reverse=True)
+        sorted_cats = sorted(
+            category_counts.items(), key=lambda x: x[1]["incomplete"], reverse=True
+        )
         for cat, counts in sorted_cats[:20]:
-            pct = counts["incomplete"] / counts["total"] * 100 if counts["total"] > 0 else 0
+            pct = (
+                counts["incomplete"] / counts["total"] * 100
+                if counts["total"] > 0
+                else 0
+            )
             print(f"  {cat}: {counts['incomplete']}/{counts['total']} ({pct:.1f}%)")
 
     # Preview
