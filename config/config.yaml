@@ -1,5 +1,24 @@
 model:
+  # Checked-in default runtime path: local Hugging Face backend.
+  backend: "local_hf"
   name: "/cpfs/shared/simulation/zhuzihou/models/Qwen2.5-VL-7B-Instruct"
+
+  # OpenAI-compatible multimodal API example:
+  # backend: "openai_compatible"
+  # name: "gemini-2.5-flash-image"
+  # api_base_url: "https://your-openai-compatible-host"
+  # api_key_env: "NEWAPI_API_KEY"
+  # api_timeout_seconds: 120
+  # api_max_retries: 2
+
+  # API fields are only used when backend=openai_compatible.
+  api_base_url: null
+  api_key_env: "NEWAPI_API_KEY"
+  api_timeout_seconds: 120
+  api_max_retries: 2
+
+  # These fields apply only to the local_hf backend.
+  # The openai_compatible backend ignores device_map, dtype, and attn_implementation.
   device_map: "auto"
   dtype: "bfloat16"
   # attn_implementation: "flash_attention_2"

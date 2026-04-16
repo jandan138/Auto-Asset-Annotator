@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Do not run annotation commands** (commands that load and run the VLM) unless explicitly told to do so. The model is large (Qwen2.5-VL-7B-Instruct) and loading it is expensive.
 
+The repository now also supports an `openai_compatible` multimodal API backend. Avoid running live API-backed annotation commands unless explicitly told to do so, because they consume remote quota and require a real API key in the environment.
+
 ## Commands
 
 ### Installation
@@ -21,8 +23,27 @@ python scripts/download_model.py
 
 ### Run annotation
 ```bash
-# Basic run (uses config/config.yaml by default)
+# Basic run (uses checked-in local_hf config/config.yaml by default)
 python -m auto_asset_annotator.main --input_dir /path/to/assets --output_dir /path/to/results
+
+# API-backed example: requires both a real API base URL and NEWAPI_API_KEY
+export NEWAPI_API_KEY="<your-api-key>"
+python -m auto_asset_annotator.main \
+    --model_backend openai_compatible \
+    --model_path gemini-2.5-flash-image \
+    --api_base_url https://your-openai-compatible-host \
+    --api_key_env NEWAPI_API_KEY \
+    --input_dir /path/to/assets --output_dir /path/to/results
+
+# Override backend and API settings from CLI
+python -m auto_asset_annotator.main \
+    --model_backend openai_compatible \
+    --model_path gemini-2.5-flash-image \
+    --api_base_url https://your-openai-compatible-host \
+    --api_key_env NEWAPI_API_KEY \
+    --input_dir /path/to/assets --output_dir /path/to/results
+
+# Exporting only NEWAPI_API_KEY is not enough if api_base_url is still a placeholder
 
 # Override prompt type
 python -m auto_asset_annotator.main --prompt_type classify_object_category_prompt --input_dir /data/assets --output_dir /data/results
@@ -111,7 +132,8 @@ src/auto_asset_annotator/
 ├── config/
 │   └── settings.py      # Dataclasses: Config, ModelConfig, DataConfig, ProcessingConfig, PromptConfig
 ├── core/
-│   ├── model.py         # ModelEngine: loads Qwen2.5-VL via HuggingFace, runs inference
+│   ├── api_model.py     # OpenAI-compatible multimodal backend for remote chat completions
+│   ├── model.py         # Backend factory + LocalHFEngine compatibility alias
 │   ├── pipeline.py      # AnnotationPipeline: orchestrates image discovery → prompt → inference → parsing
 │   └── prompt.py        # PromptFactory: all prompt templates; SUPPORTED_PROMPT_TYPES list
 └── utils/
@@ -123,8 +145,10 @@ src/auto_asset_annotator/
 
 1. `get_asset_images()` resolves view patterns from `config.data.views` (e.g., `front: ["front.png", "0.png"]`), falling back to all sorted images in the asset directory if no named views are found.
 2. `PromptFactory.compose_user_prompt()` selects the prompt template by `prompt_type`.
-3. `ModelEngine.inference()` runs Qwen-VL with `process_vision_info()` from `qwen_vl_utils`.
+3. `build_model_engine()` selects either the local Hugging Face engine or the `openai_compatible` API engine.
 4. For `extract_*` and `json`-named prompts, the model is asked to return structured text. `parse_structured_text_enhanced()` then extracts key-value pairs (Category, Description, Material, Dimensions, Mass, Placement), and `main.py` writes the parsed result to a JSON file. On parse failure, `{"raw_output": <text>}` is saved.
+
+For the `openai_compatible` backend, `core/api_model.py` converts local image paths to data URLs and POSTs them to `/v1/chat/completions`. `device_map`, `dtype`, and `attn_implementation` remain in `ModelConfig` for `local_hf` only and are ignored by the API path.
 
 ### Retry behavior
 
@@ -180,8 +204,10 @@ input_dir/
 ## Configuration (`config/config.yaml`)
 
 Key fields to know:
-- `model.name`: absolute path to local model weights (current: `/cpfs/shared/simulation/zhuzihou/models/Qwen2.5-VL-7B-Instruct`)
-- `model.attn_implementation`: `"eager"` (current, avoids flash-attn dependency) or `"flash_attention_2"` (faster)
+- `model.backend`: `"local_hf"` for on-box inference or `"openai_compatible"` for remote Chat Completions
+- `model.name`: local model path for `local_hf`, or remote model name such as `gemini-2.5-flash-image` for `openai_compatible`
+- `model.api_base_url` / `model.api_key_env`: required for `openai_compatible`
+- `model.attn_implementation`: `"eager"` (current, avoids flash-attn dependency) or `"flash_attention_2"` (faster) for `local_hf` only
 - `model.max_new_tokens`: `2048` (current)
 - `prompts.default_type`: `"extract_object_attributes_prompt"` (current default)
 - `data.views`: maps logical view names to ordered lists of candidate filenames to try
