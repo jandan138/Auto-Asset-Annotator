@@ -103,24 +103,33 @@ python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); 
 For large-scale distributed annotation on Alibaba Cloud PAI-DLC:
 
 ```bash
-# Submit 4 parallel workers for batch annotation
-python scripts/dlc/submit_batch.py --total 4 --name my_annotation \
-    --command_args "--input_dir /data/assets --output_dir /data/results"
+# Preferred operator entrypoint: wrapper script around submit_batch.py
+bash scripts/dlc/submit_annotate.sh --dry-run
 
-# Submit with specific prompt type
+# Retry failed assets
+bash scripts/dlc/submit_retry_failed.sh --dry-run
+
+# Retry incomplete results
+bash scripts/dlc/submit_retry_incomplete.sh --dry-run
+
+# Explicit asset list workflow
+bash scripts/dlc/submit_asset_list.sh --dry-run --asset_list_file archive/temp_lists/failed_assets.txt
+
+# Raw submit_batch.py remains available for custom chunk-mode main.py flags
 python scripts/dlc/submit_batch.py --total 8 --name classify_task \
-    --command_args "--input_dir /data/assets --output_dir /data/results --prompt_type classify_object_category_prompt"
-
-# Retry failed assets with force flag
-python scripts/dlc/submit_batch.py --total 4 --name retry_failed \
-    --command_args "--input_dir /data/assets --output_dir /data/results --asset_list_file archive/temp_lists/failed_assets.txt --force"
+    --command_args "--input_dir /data/assets --output_dir /data/results --prompt_type classify_object_category_prompt" \
+    --dry-run
 
 # Check DLC job status
 ./dlc get jobs
 ./dlc logs <job_id>
 ```
 
-See [docs/dlc/README.md](docs/dlc/README.md) for complete DLC documentation.
+The upgraded chain is `submit_*.sh -> submit_batch.py -> launch_job.sh -> run_task.sh -> python_runtime.sh -> python -m auto_asset_annotator.main`.
+
+Preferred operator entrypoints are the wrapper scripts in `scripts/dlc/`. Use raw `submit_batch.py` only for non-standard chunk-mode batches.
+
+See [docs/dlc/README.md](docs/dlc/README.md) for the maintained DLC operator workflow.
 
 ## Architecture
 

@@ -1,165 +1,118 @@
-# DLC Remote Job Submission / DLC 远程任务提交
+# DLC Operator Runbook
 
-本文档只描述当前仓库仍在维护的 DLC 提交流程：
-
-- 本地或 DSW 执行 `scripts/dlc/submit_batch.py`
-- 由它调用 `scripts/dlc/launch_job.sh`
-- DLC worker 容器执行 `scripts/dlc/run_task.sh`
-- 最终运行 `python -m auto_asset_annotator.main`
-
-## 1. 当前调用链
+This runbook covers the maintained DLC workflow for this repository:
 
 ```text
-submit_batch.py
-  -> launch_job.sh
-    -> dlc submit pytorchjob
-      -> run_task.sh
-        -> python -m auto_asset_annotator.main
+submit_*.sh -> submit_batch.py -> launch_job.sh -> run_task.sh -> python_runtime.sh -> python -m auto_asset_annotator.main
 ```
 
-## 2. 快速开始
+The primary batch contract is:
 
-### 检查 DLC CLI
+```text
+run_task.sh <chunk_id> <chunk_total> [extra main.py flags...]
+```
+
+Use the wrapper scripts for routine operations. Use `submit_batch.py` directly only when you need a non-standard batch shape.
+
+## Supported Workflows
+
+- Full annotation batch: `bash scripts/dlc/submit_annotate.sh`
+- Retry assets from `archive/temp_lists/failed_assets.txt`: `bash scripts/dlc/submit_retry_failed.sh`
+- Retry incomplete physical-property results: `bash scripts/dlc/submit_retry_incomplete.sh`
+- Submit an explicit asset list: `bash scripts/dlc/submit_asset_list.sh --asset_list_file <path>`
+- Raw batch submission for custom `main.py` flags: `python scripts/dlc/submit_batch.py ... --command_args "..."`
+
+Direct `run_task.sh` named modes (`annotate`, `classify`, `extract`, `custom`) still exist for debugging, but chunk mode is the maintained DLC operator path.
+
+## Preflight Checklist
+
+- Confirm the DLC CLI is available: `./dlc get jobs`
+- Confirm the repository path mounted in DLC matches `DLC_CODE_ROOT`
+- Confirm `.venv_dlc` or `.venv` exists under `DLC_CODE_ROOT`
+- Confirm `INPUT_DIR` and `OUTPUT_DIR` point to DLC-accessible paths if you override them
+- Confirm the selected backend is intentional:
+  `local_hf`: local model path or config-backed model must exist in the worker image
+  `openai_compatible`: both `--api_base_url` and `--api_key_env` must resolve, and the named key must be non-empty in the runtime environment
+- Run a dry-run wrapper command before real submission
+
+## Submission Methods
+
+Preferred entrypoints:
 
 ```bash
-ls -l ./dlc
-./dlc get jobs
+bash scripts/dlc/submit_annotate.sh --dry-run
+bash scripts/dlc/submit_retry_failed.sh --dry-run
+bash scripts/dlc/submit_retry_incomplete.sh --dry-run
+bash scripts/dlc/submit_asset_list.sh --dry-run --asset_list_file archive/temp_lists/failed_assets.txt
 ```
 
-### 提交批量任务
+Useful wrapper overrides:
 
 ```bash
-python scripts/dlc/submit_batch.py --total 4 --name asset_annotation \
-    --command_args "--input_dir /path/to/assets --output_dir /path/to/results"
+TOTAL=8 INPUT_DIR=/data/assets OUTPUT_DIR=/data/results bash scripts/dlc/submit_annotate.sh --dry-run
+NAME=retry_failed_hotfix bash scripts/dlc/submit_retry_failed.sh --dry-run
+ASSET_LIST_FILE=archive/temp_lists/custom_assets.txt bash scripts/dlc/submit_asset_list.sh --dry-run
+EXTRA_MAIN_ARGS="--prompt_type classify_object_category_prompt" bash scripts/dlc/submit_annotate.sh --dry-run
 ```
 
-### 查看状态
-
-```bash
-./dlc get jobs
-./dlc get job <job_id>
-./dlc logs <job_id>
-```
-
-## 3. `submit_batch.py`
-
-位置：`scripts/dlc/submit_batch.py`
-
-职责：
-
-- 校验 `--total`
-- 为每个 chunk 组装一次 `bash scripts/dlc/launch_job.sh ...`
-- 默认注入数据源 ID
-- 对提交失败做最多 3 次指数退避重试
-
-关键参数：
-
-- `--total`: chunk 数量，必填
-- `--name`: 任务名前缀，默认 `asset_annotation`
-- `--data_sources`: 可选，自定义数据源 ID 列表
-- `--command_args`: 传给 `run_task.sh` 的额外参数
-- `--max-total`: 安全上限，默认 `100`
-
-## 4. `launch_job.sh`
-
-位置：`scripts/dlc/launch_job.sh`
-
-职责：
-
-- 读取工作空间、资源、镜像、代码根目录等环境变量
-- 调用 `dlc submit pytorchjob`
-- 把当前 chunk 信息和额外参数传给 `run_task.sh`
-
-当前默认值来自脚本本身：
-
-- `DLC_WORKSPACE_ID=270969`
-- `DLC_RESOURCE_ID=quotalplclkpgjgv`
-- `DLC_IMAGE=dsw-registry-vpc.cn-beijing.cr.aliyuncs.com/pai-training-algorithm/isaac-sim:isaacsim450-vnc-v8`
-- `DLC_CODE_ROOT=/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator`
-
-## 5. `run_task.sh`
-
-位置：`scripts/dlc/run_task.sh`
-
-职责：
-
-- 在容器内查找 `.venv_dlc`，找不到时回退到 `.venv`
-- 设置 `PYTHONUNBUFFERED`、`PYTHONPATH`、`MODEL_PATH`
-- 支持这些模式：
-  - `annotate`
-  - `classify`
-  - `extract`
-  - `custom`
-  - 默认的 `<chunk_id> <chunk_total>` 分块模式
-
-当前主线维护的 DLC 提交流程使用的是 **分块模式**，因为 `launch_job.sh` 默认就是按 chunk 调用 `run_task.sh <chunk_id> <chunk_total> ...`。
-
-上面列出的 `annotate`、`classify`、`extract`、`custom` 属于 `run_task.sh` 的直接/手动入口；它们可以单独调用，但不是这里主推的批量提交链路。
-
-## 6. 常用提交示例
-
-### 默认属性提取
-
-```bash
-python scripts/dlc/submit_batch.py --total 4 --name annotate_assets \
-    --command_args "--input_dir /data/assets --output_dir /data/results"
-```
-
-### 指定分类 prompt
+When you need raw control, `submit_batch.py` accepts extra `main.py` flags through `--command_args`. Those flags are appended after the chunk pair and do not change `run_task.sh` mode.
 
 ```bash
 python scripts/dlc/submit_batch.py --total 4 --name classify_assets \
-    --command_args "--input_dir /data/assets --output_dir /data/results --prompt_type classify_object_category_prompt"
+    --command_args "--input_dir /data/assets --output_dir /data/results --prompt_type classify_object_category_prompt" \
+    --dry-run
 ```
 
-### 基于失败列表重跑
+## Resource Profiles
 
-```bash
-python scripts/dlc/submit_batch.py --total 4 --name retry_failed \
-    --command_args "--input_dir /data/assets --output_dir /data/results --asset_list_file archive/temp_lists/failed_assets.txt --force"
-```
+`launch_job.sh` resolves one of three repository-specific profiles through `DLC_PROFILE`:
 
-### 基于不完整结果重跑
+- `api_light`: remote multimodal API usage, smaller CPU and memory footprint
+- `local_hf_default`: default local VLM inference profile
+- `local_hf_heavy`: larger local profile for heavier local runs
 
-```bash
-python scripts/dlc/submit_batch.py --total 4 --name retry_incomplete \
-    --command_args "--input_dir /data/assets --output_dir /data/results --retry_incomplete"
-```
+The launcher prints a resolved config summary before submission. You can still override individual resolved values with `DLC_WORKER_GPU`, `DLC_WORKER_CPU`, `DLC_WORKER_MEMORY`, `DLC_WORKER_SHARED_MEMORY`, and `DLC_RESOURCE_ID`.
 
-## 7. 生产使用注意事项
+## Monitoring And Logs
 
-- `python -m auto_asset_annotator.main` 仍然是最终执行入口
-- `--command_args` 只是把 CLI 参数透传给主程序
-- 当前主线模型选择由 `auto_asset_annotator.main` 读取的 `config` 或 `--model_path` 决定；`run_task.sh` 导出的 `MODEL_PATH` 本身不会自动覆盖 `main.py` 使用的模型
-- 当前主线输出是“模型返回 structured text，流水线解析后写 JSON”
-- 历史修复列表统一使用 `archive/temp_lists/...` 路径
+- List jobs: `./dlc get jobs`
+- Inspect a job: `./dlc get job <job_id>`
+- Stream logs: `./dlc logs <job_id>`
 
-## 8. 常见问题
+Watch for these signals in launcher output and worker logs:
 
-### `dlc` 不可执行
+- Resolved profile, CPU, GPU, memory, and resource quota
+- The final `run_task.sh` command shape
+- `python_runtime.sh` preflight failures before model startup
+- `auto_asset_annotator.main` progress through chunk processing
 
-```bash
-ls -l ./dlc
-```
+## Post-Run Validation
 
-### 容器内找不到虚拟环境
+- Confirm expected output JSON files were written under `OUTPUT_DIR`
+- Sample output files to verify parsed fields instead of `raw_output`
+- If the run was a retry workflow, verify the expected source list was consumed
+- For chunked runs, spot-check that multiple chunks produced disjoint outputs
+- Record the submission command, job ID, profile, input path, and output path
 
-`run_task.sh` 只会找：
+## Recovery And Rerun
 
-- `.venv_dlc`
-- `.venv`
+- Parse failures or previously failed assets: `bash scripts/dlc/submit_retry_failed.sh`
+- Incomplete physical-property fields: `bash scripts/dlc/submit_retry_incomplete.sh`
+- Explicit operator-curated subset: `bash scripts/dlc/submit_asset_list.sh --asset_list_file <path>`
 
-因此提交前应先准备至少一个环境。
+Use `--dry-run` first on every rerun. Only fall back to raw `submit_batch.py` when the maintained wrappers do not cover the batch you need.
 
-### 任务提交成功但没有输出
+## Backend Notes
 
-优先检查：
+`local_hf` and `openai_compatible` use the same chunk submission chain but have different runtime requirements.
 
-- `--input_dir` 是否正确挂载
-- 资产目录下是否真的有图片
-- `--output_dir` 是否可写
-- 任务日志里是否出现 `No images found` 或模型加载错误
+`local_hf`:
+- Requires a valid model path or config-backed model name in the worker environment
+- Uses local GPU memory and the `local_hf_default` or `local_hf_heavy` profile in most cases
 
-## 9. 边界说明
+`openai_compatible`:
+- Sends images to a remote chat-completions-compatible endpoint
+- Requires an API base URL, an API key env var name, and a non-empty API key in the worker runtime
+- Usually fits the `api_light` profile because inference happens remotely
 
-本页关注的是 **当前 DLC 提交与运行流程**，不是历史迁移叙事。迁移背景保留在变更记录中；这里以现有脚本行为为准。
+For both backends, the wrapper and launcher logs should make the final runtime configuration explicit before a real job is submitted.

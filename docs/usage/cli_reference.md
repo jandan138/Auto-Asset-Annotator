@@ -22,6 +22,9 @@ python -m auto_asset_annotator.main [OPTIONS]
 | `--retry_incomplete` | Flag | 仅重试 `material`、`dimensions`、`mass`、`placement` 中存在空值的结果。 |
 | `--num_chunks` | Int | 总分块数，用于并行任务切片。 |
 | `--chunk_index` | Int | 当前作业处理的块索引，从 `0` 开始。 |
+| `--model_backend` | String | 显式选择 `local_hf` 或 `openai_compatible`。 |
+| `--api_base_url` | String | `openai_compatible` 后端的 API base URL。 |
+| `--api_key_env` | String | `openai_compatible` 后端读取 API key 的环境变量名。 |
 
 ## 常见命令
 
@@ -74,6 +77,29 @@ python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 1
 python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 2
 python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 3
 ```
+
+在 DLC 中，维护中的批量调用链会把这些参数组装为：
+
+```bash
+python -m auto_asset_annotator.main --num_chunks <total> --chunk_index <index> [other flags...]
+```
+
+常见 DLC 重跑标志仍然是普通 CLI 参数：
+
+```bash
+python -m auto_asset_annotator.main \
+  --input_dir /data/assets \
+  --output_dir /data/results \
+  --asset_list_file archive/temp_lists/failed_assets.txt \
+  --force
+
+python -m auto_asset_annotator.main \
+  --input_dir /data/assets \
+  --output_dir /data/results \
+  --retry_incomplete
+```
+
+运维侧优先使用 `scripts/dlc/submit_annotate.sh`、`scripts/dlc/submit_retry_failed.sh`、`scripts/dlc/submit_retry_incomplete.sh`、`scripts/dlc/submit_asset_list.sh`，而不是手写 `--command_args`。
 
 ## 行为说明
 

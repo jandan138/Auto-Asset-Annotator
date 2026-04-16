@@ -74,5 +74,8 @@ python -m auto_asset_annotator.main --input_dir /path/to/assets --output_dir /pa
 - 安装部署: `docs/installation/linux_deployment.md`
 - 快速开始: `docs/usage/quick_start.md`
 - CLI 说明: `docs/usage/cli_reference.md`
+- DLC 运维流程: `docs/dlc/README.md`
 - 开发说明: `docs/development/project_structure.md`
 - 常见问题: `docs/troubleshooting/common_issues.md`
+
+For maintained Alibaba Cloud PAI-DLC operations, use the wrapper-first workflow documented in `docs/dlc/README.md`.
