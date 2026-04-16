@@ -68,7 +68,9 @@ EOF
 ENDOFFILE
 
 # Build artifacts
-dlc
+/dlc
+!scripts/dlc/
+!scripts/dlc/**
 
 # Test output directories
 output_dlc_test/
