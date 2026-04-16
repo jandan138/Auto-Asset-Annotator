@@ -1,114 +1,119 @@
 # 核心代码导读 (Core Code Walkthrough)
 
-本文档将带您深入阅读 Auto-Asset-Annotator 的核心代码文件，解析关键函数的实现细节。建议配合 IDE 阅读源码。
+这份导读只讲当前仍在主线生效的代码路径。
 
-## 1. `src/auto_asset_annotator/main.py` - 程序入口
+## 1. `src/auto_asset_annotator/main.py`
 
-这是整个程序的指挥塔。
+这是总控入口。
 
-### 关键逻辑：分块处理 (Chunking)
+### 配置覆盖
 
-```python
-# List Assets
-all_assets = list_assets(cfg.data.input_dir)
+`main()` 先读 `config/config.yaml`，再用 CLI 覆盖：
 
-# Chunking logic
-total_assets = len(all_assets)
-if cfg.processing.num_chunks > 1:
-    # 计算每个分块的大小（向上取整）
-    chunk_size = (total_assets + cfg.processing.num_chunks - 1) // cfg.processing.num_chunks
-    # 计算当前分块的切片范围
-    start_idx = cfg.processing.chunk_index * chunk_size
-    end_idx = min((cfg.processing.chunk_index + 1) * chunk_size, total_assets)
-    # 获取子集
-    assets_to_process = all_assets[start_idx:end_idx]
-```
-*   **解析**: 这段代码确保了当您启动多个进程（指定不同的 `chunk_index`）时，它们不会重复处理同一个资产。
+- `--input_dir`
+- `--output_dir`
+- `--model_path`
+- `--prompt_type`
+- `--asset_list_file`
+- `--num_chunks`
+- `--chunk_index`
 
-### 关键逻辑：输出路径构建
+### 资产来源
+
+资产列表有两条路：
+
+- 传了 `--asset_list_file`：按文件逐行读取
+- 没传：调用 `list_assets(cfg.data.input_dir)`
+
+### 输出路径构建
 
 ```python
 output_file = os.path.join(cfg.data.output_dir, f"{asset_name}_annotation.json")
-# Ensure subdirectories exist
 os.makedirs(os.path.dirname(output_file), exist_ok=True)
 ```
-*   **解析**: `asset_name` 实际上是相对路径（如 `basket/asset_123`）。这里巧妙地利用 `os.path.join` 将相对路径拼接到输出根目录，从而自动保持了目录结构。
 
-## 2. `src/auto_asset_annotator/core/pipeline.py` - 流水线
+如果 `asset_name` 是 `chair/abc123`，最终输出就会变成：
 
-### 关键方法：`process_asset`
+```text
+{output_dir}/chair/abc123_annotation.json
+```
+
+### 重试逻辑
+
+`main.py` 当前会重试三类情况：
+
+- 输出文件中存在 `raw_output`
+- 传了 `--retry_incomplete` 且物理属性字段有空值
+- 传了 `--force`
+
+## 2. `src/auto_asset_annotator/core/pipeline.py`
+
+### `process_asset()`
+
+这是主业务函数，顺序非常直：
+
+1. 找图
+2. 生成 prompt
+3. 组装消息
+4. 调模型
+5. 解析结果
+
+### 为什么说当前主线是“结构化文本解析”？
+
+因为判断逻辑是：
 
 ```python
-def process_asset(self, asset_path: str, prompt_type: str = None) -> Dict[str, Any]:
-    # 1. 查找图片
-    images_map = get_asset_images(asset_path, self.config.data)
-    image_paths = list(images_map.values())
-    
-    # 2. 组装 Prompt
-    user_prompt = PromptFactory.compose_user_prompt(...)
-    
-    # 3. 构造消息
-    messages = self._prepare_messages(user_prompt, image_paths)
-    
-    # 4. 推理
-    result_text = self.engine.inference(messages)
-    
-    # 5. JSON 清洗
-    if "json" in prompt_type:
-        clean_text = result_text.strip()
-        # 去除 markdown 代码块标记
-        if clean_text.startswith("```json"): clean_text = clean_text[7:]
-        if clean_text.endswith("```"): clean_text = clean_text[:-3]
-        result = json.loads(clean_text)
+if "json" in prompt_type.lower() or "extract" in prompt_type.lower():
+    result = self.parse_structured_text_enhanced(result_text)
 ```
-*   **解析**: 
-    *   步骤 1 使用配置中的规则（文件名匹配）找到所有图片。
-    *   步骤 5 是至关重要的**容错层**。大模型经常会在 JSON 外面包裹 Markdown 标记，必须手动去除才能被 `json.loads` 解析。
 
-## 3. `src/auto_asset_annotator/core/model.py` - 模型交互
+也就是说，只要 prompt 名命中这个规则，流水线就会尝试把模型文本解析成字段字典，而不是做简单的 JSON 反序列化。
 
-### 关键方法：`__init__` (模型加载)
+### 解析后处理
 
-```python
-try:
-     from transformers import Qwen2_5_VLForConditionalGeneration
-     model_class = Qwen2_5_VLForConditionalGeneration
-except ImportError:
-     from transformers import AutoModelForCausalLM
-     model_class = AutoModelForCausalLM
-```
-*   **解析**: 这里展示了**兼容性设计**。它优先尝试加载特定的高性能模型类，如果环境中没有（或版本不对），则回退到通用的 `AutoModel`。这保证了代码能在不同版本的 `transformers` 库中运行。
+解析成功后还有两步很关键：
 
-### 关键方法：`inference`
+- 用输入目录相对路径的首段覆盖 `category`
+- 对 `dimensions` 和 `mass` 做数值规范化
 
-```python
-# 视觉信息预处理
-image_inputs, video_inputs = process_vision_info(inputs_messages)
+## 3. `src/auto_asset_annotator/core/model.py`
 
-# 调用 Processor
-inputs = self.processor(
-    text=[text],
-    images=image_inputs,
-    ...
-)
-```
-*   **解析**: `process_vision_info` 是 `qwen_vl_utils` 提供的工具，它能自动识别输入消息中的本地路径、URL 或 Base64 图片，并将其转换为模型需要的 Tensor 格式。
+### 模型类选择
 
-## 4. `src/auto_asset_annotator/utils/file.py` - 文件操作
+当前加载顺序是：
 
-### 关键方法：`list_assets`
+1. `Qwen2_5_VLForConditionalGeneration`
+2. `AutoModelForCausalLM`
+3. 如果模型名含 `Qwen3`，再尝试 `Qwen3VLMoeForConditionalGeneration`
 
-```python
-def list_assets(input_dir: str) -> List[str]:
-    # 递归遍历所有子目录
-    for root, dirs, files in os.walk(input_dir):
-        # 只要目录下有图片，就视为一个资产
-        has_images = any(f.lower().endswith(...) for f in files)
-        if has_images:
-            # 返回相对路径
-            rel_path = os.path.relpath(root, input_dir)
-            assets.append(rel_path)
-            # 停止向下递归（假设资产是叶子节点）
-            dirs[:] = []
-```
-*   **解析**: 这是支持嵌套目录的核心。通过 `os.walk` 和 `dirs[:] = []`，我们实现了“找到包含图片的文件夹就停止深入”的逻辑，防止将资产内部的 `thumbnails` 文件夹误判为另一个资产。
+这就是为什么文档里应该写“Qwen2.5-VL first”，而不是笼统地写成“通用任意多模态模型加载器”。
+
+### 推理输入
+
+`inference()` 会：
+
+- 用 chat template 生成文本
+- 用 `process_vision_info()` 提取图像输入
+- 调 processor 得到 tensor
+- 调 `generate()` 拿到输出 token
+- 解码为文本
+
+## 4. `src/auto_asset_annotator/utils/file.py`
+
+### `list_assets()`
+
+它会递归遍历目录，只要一个目录里有图片，就把它认作资产，并停止继续向下找。这能避免把资产内部的子目录误识别成新的资产。
+
+### `get_asset_images()`
+
+它先按 `config.data.views` 里定义的命名规则找图。如果一张命名视角都没找到，就回退到目录内所有图片的自然排序列表。
+
+## 5. 一句话总结代码骨架
+
+这个仓库当前最重要的骨架不是“模型怎么回答”，而是：
+
+- 如何稳定找到资产图片
+- 如何稳定把 prompt 和图片送进 Qwen
+- 如何稳定把结构化文本解析成 JSON
+
+读懂这三层，整个项目就读懂了大半。

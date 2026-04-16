@@ -1,12 +1,6 @@
 # 第三章：施展第一个咒语
 
-万事俱备，只欠东风。现在我们要念出那句咒语，唤醒沉睡的 Qwen-VL。
-
-## 1. 启动命令
-
-打开终端，确保你还在项目目录下，并且 Conda 环境已经激活。
-
-输入这行命令（记得把路径换成你自己的）：
+现在，我们来看主线入口命令。真正点火的咒语其实很简单：
 
 ```bash
 python -m auto_asset_annotator.main \
@@ -14,38 +8,61 @@ python -m auto_asset_annotator.main \
     --output_dir ./test_output
 ```
 
-**发生了什么？**
+## 1. 念出咒语后，会发生什么？
 
-1.  **加载模型**：你会看到屏幕上开始打印加载进度条。这是最慢的一步，需要把几十 GB 的数据搬到显存里。耐心等待，如果你的显存不够，这时候可能会报错（OOM）。
-2.  **扫描资产**：它会说 "Found 1 assets"（如果你只放了一个测试品）。
-3.  **开始推理**：你会看到进度条开始走动。`Annotating: 0%| | 0/1 ...`
-4.  **完成**：最后它会说 "Processing complete."
+程序会依次做这些事：
 
-## 2. 查收成果
+1. 读取 `config/config.yaml`
+2. 用命令行参数覆盖配置里的输入、输出或 prompt 类型
+3. 初始化 `ModelEngine`
+4. 扫描资产目录，或者读取 `--asset_list_file`
+5. 对每个资产收集图片、拼出 prompt、调用模型
+6. 如果 prompt 名里带 `extract` 或 `json`，就把模型返回的 **structured text** 解析成字段
+7. 最后把结果写成 JSON
 
-快去 `test_output` 文件夹看看！你应该能看到一个 `.json` 文件。
+## 2. 你会在输出目录里看到什么？
 
-用记事本（或者 VS Code）打开它，你可能会看到这样的惊喜：
+主线输出长这样：
 
 ```json
 {
-    "my_first_item": {
+    "chair/example_asset": {
         "category": "chair",
-        "description": "This is a modern style dining chair...",
-        "material": "The legs are made of oak wood...",
+        "description": "...",
+        "material": "...",
         "dimensions": "0.5 * 0.5 * 1.0",
-        "placement": ["OnFloor"]
+        "mass": "3.2",
+        "placement": "OnFloor"
     }
 }
 ```
 
-看！它不仅认出了这是椅子，还看出了材质是橡木（Oak），甚至估算了尺寸。这就是 VLM 的魔力。
+注意两个关键点：
 
-## 3. 如果失败了...
+- 模型并不是直接被要求输出最终 JSON
+- 默认属性提取 prompt 先输出带字段头的结构化文本，再由流水线解析并写成 JSON
 
-*   **报错 "CUDA out of memory"**：说明你的显卡显存太小，装不下这个模型。
-    *   *解法*：尝试换个小点的模型（比如 Qwen2.5-VL-3B，如果有的话），或者去借台更好的机器。
-*   **报错 "No images found"**：说明它没找到图片。
-    *   *解法*：检查一下你的文件名，是不是叫 `front.jpg` 但配置里只写了 `front.png`？（后缀名也要匹配哦！）
+## 3. 如果解析失败呢？
 
-恭喜你！你已经成功完成了第一次自动化标注。下一章，我们将学习如何通过修改“配方”来让它干更多复杂的活。
+别慌。系统不会直接把失败吞掉，而是会保存：
+
+```json
+{
+    "chair/example_asset": {
+        "raw_output": "模型原始输出文本..."
+    }
+}
+```
+
+这样你可以：
+
+- 复查模型到底说了什么
+- 用同一条命令再次运行，让它自动重试失败项
+
+## 4. 常见卡点
+
+- `CUDA out of memory`：显存装不下模型
+- `No images found`：图片命名或目录结构没有被当前配置识别
+- 输出里只有 `raw_output`：说明模型没有按预期的结构化格式回答
+
+第一次看到 JSON 成功落盘时，你就已经完成了这条流水线的最小闭环。

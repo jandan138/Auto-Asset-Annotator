@@ -34,7 +34,7 @@ python -m auto_asset_annotator.main --input_dir /data/assets --output_dir /data/
 python -m auto_asset_annotator.main --input_dir /data/assets --output_dir /data/results --retry_incomplete
 
 # Use a pre-built asset list file instead of scanning
-python -m auto_asset_annotator.main --asset_list_file failed_assets.txt --output_dir ./output
+python -m auto_asset_annotator.main --asset_list_file archive/temp_lists/failed_assets.txt --output_dir ./output
 
 # Distributed chunking (e.g., 4-machine parallel)
 python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 0  # machine 1
@@ -54,19 +54,19 @@ python test_parser_robustness.py
 python scripts/find_success_assets.py --output_dir ./output --save_list success_assets.txt
 
 # Find failed assets (has "raw_output" field indicating parse failure)
-python scripts/find_failed_assets.py --output_dir ./output --save_list failed_assets.txt
+python scripts/find_failed_assets.py --output_dir ./output --save_list archive/temp_lists/failed_assets.txt
 
 # Find assets with incomplete/empty physical property fields
-python scripts/find_incomplete_assets.py --output_dir ./output --save_list incomplete_assets.txt
-python scripts/find_incomplete_assets.py --output_dir ./output --save_list incomplete_assets.txt --strict --stats
+python scripts/find_incomplete_assets.py --output_dir ./output --save_list archive/temp_lists/incomplete_assets.txt
+python scripts/find_incomplete_assets.py --output_dir ./output --save_list archive/temp_lists/incomplete_assets.txt --strict --stats
 
 # Merge re-annotated results into existing annotations (selective field fill)
 python scripts/merge_annotations.py --old_dir ./output --new_dir ./output_reannotate           # dry-run
 python scripts/merge_annotations.py --old_dir ./output --new_dir ./output_reannotate --apply   # apply
 
 # Fill empty physical properties with category-based defaults (material, mass, placement)
-python scripts/fill_defaults.py --output_dir ./output --asset_list remaining_incomplete.txt           # dry-run
-python scripts/fill_defaults.py --output_dir ./output --asset_list remaining_incomplete.txt --apply   # apply
+python scripts/fill_defaults.py --output_dir ./output --asset_list archive/temp_lists/remaining_incomplete.txt           # dry-run
+python scripts/fill_defaults.py --output_dir ./output --asset_list archive/temp_lists/remaining_incomplete.txt --apply   # apply
 
 # Download model from hf-mirror.com (for China users)
 python scripts/download_model.py
@@ -92,7 +92,7 @@ python scripts/dlc/submit_batch.py --total 8 --name classify_task \
 
 # Retry failed assets with force flag
 python scripts/dlc/submit_batch.py --total 4 --name retry_failed \
-    --command_args "--input_dir /data/assets --output_dir /data/results --asset_list_file failed_assets.txt --force"
+    --command_args "--input_dir /data/assets --output_dir /data/results --asset_list_file archive/temp_lists/failed_assets.txt --force"
 
 # Check DLC job status
 ./dlc get jobs
@@ -103,7 +103,7 @@ See [docs/dlc/README.md](docs/dlc/README.md) for complete DLC documentation.
 
 ## Architecture
 
-The pipeline is a linear chain: **CLI → Config → ModelEngine → AnnotationPipeline → JSON output**.
+The pipeline is a linear chain: **CLI → Config → ModelEngine → AnnotationPipeline → parsed JSON output**.
 
 ```
 src/auto_asset_annotator/
@@ -124,20 +124,21 @@ src/auto_asset_annotator/
 1. `get_asset_images()` resolves view patterns from `config.data.views` (e.g., `front: ["front.png", "0.png"]`), falling back to all sorted images in the asset directory if no named views are found.
 2. `PromptFactory.compose_user_prompt()` selects the prompt template by `prompt_type`.
 3. `ModelEngine.inference()` runs Qwen-VL with `process_vision_info()` from `qwen_vl_utils`.
-4. For `extract_*` and `json`-named prompts, `parse_structured_text()` uses regex to extract key-value pairs (Category, Description, Material, Dimensions, Mass, Placement). On parse failure, `{"raw_output": <text>}` is saved.
+4. For `extract_*` and `json`-named prompts, the model is asked to return structured text. `parse_structured_text_enhanced()` then extracts key-value pairs (Category, Description, Material, Dimensions, Mass, Placement), and `main.py` writes the parsed result to a JSON file. On parse failure, `{"raw_output": <text>}` is saved.
 
 ### Retry behavior
 
 In `main.py`, assets are automatically retried if:
 - The output file doesn't exist
 - The output file contains `"raw_output"` (indicating a previous parse failure)
+- The `--retry_incomplete` flag is passed and one of `material`, `dimensions`, `mass`, or `placement` is empty
 - The `--force` flag is explicitly passed
 
 This means you can re-run the same command to retry failed assets without needing to manually filter them.
 
 ### Output format
 
-Each asset produces `{output_dir}/{category}/{asset_id}_annotation.json`:
+Each asset produces `{output_dir}/{category}/{asset_id}_annotation.json` after the pipeline parses the model's structured text output:
 
 **Success format:**
 ```json
@@ -160,6 +161,7 @@ Each asset produces `{output_dir}/{category}/{asset_id}_annotation.json`:
     "raw_output": "unparsed model output text..."
   }
 }
+```
 
 ### Asset directory structure expected
 
@@ -189,7 +191,7 @@ Key fields to know:
 
 1. Register the name in `SUPPORTED_PROMPT_TYPES` list in `core/prompt.py`
 2. Add an `elif` branch in `PromptFactory.compose_user_prompt()` returning the prompt string
-3. If the new prompt returns structured text needing field extraction, name it with `extract` or `json` in the type name (triggers `parse_structured_text()` in pipeline)
+3. If the new prompt returns structured text needing field extraction, name it with `extract` or `json` in the type name (triggers `parse_structured_text_enhanced()` in the pipeline parsing branch)
 4. Use via `--prompt_type my_new_prompt`
 
 ## Project Status
@@ -205,7 +207,7 @@ Field completion rates (after default filling):
 
 All 5 fields are 100% complete. Dimensions were filled using per-category median values from existing annotations.
 
-The annotation pipeline is stable and all output files in `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/output` contain valid structured data without `raw_output` fields.
+The annotation pipeline is stable and all output files in `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/output` contain valid parsed JSON data without `raw_output` fields.
 
 ---
 

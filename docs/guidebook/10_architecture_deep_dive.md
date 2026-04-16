@@ -1,81 +1,97 @@
 # 架构深度解析 (Architecture Deep Dive)
 
-本文档旨在深入剖析 Auto-Asset-Annotator 的系统架构与设计理念，帮助开发者理解各模块如何协同工作以实现高效的 3D 资产自动化标注。
+本文档对应当前代码，而不是早期设想版。主线实现是一条清晰的单资产流水线，再加上面向批量任务的资产枚举与分块控制。
 
 ## 1. 核心设计理念
 
-本项目遵循 **Pipeline（流水线）** 设计模式，将复杂的标注任务拆解为清晰的独立阶段。核心理念包括：
+- **模块分层**：CLI、配置、模型、流水线、文件工具分开维护
+- **配置驱动**：大部分运行参数来自 `config/config.yaml`
+- **解析前置**：结构化结果先以文本形式生成，再由代码解析和规范化
+- **批量可扩展**：通过 chunking 把大规模任务拆到多 worker
 
-*   **模块化 (Modularity)**: 模型引擎、提示词生成、文件扫描等功能严格解耦。
-*   **配置驱动 (Config-Driven)**: 所有可变参数（路径、模型参数、Prompt 类型）均通过 `config.yaml` 管理，无需修改代码即可调整行为。
-*   **鲁棒性 (Robustness)**: 针对大模型输出的不确定性，内置了 JSON 解析重试与容错机制。
-*   **可扩展性 (Scalability)**: 支持分块（Chunking）处理，便于在集群环境并行调度。
-
-## 2. 系统数据流 (Data Flow)
-
-整个系统的数据流转过程如下：
+## 2. 当前数据流
 
 ```mermaid
 graph LR
-    A[Raw Assets (Images)] --> B(File Scanner);
-    B --> C{Annotation Pipeline};
-    D[Config] --> C;
-    E[Prompt Factory] --> C;
-    C --> F(Model Engine);
-    F --> G[JSON Parser];
-    G --> H[Output JSON Files];
+    A[CLI args] --> B[load_config]
+    B --> C[ModelEngine]
+    B --> D[AnnotationPipeline]
+    E[list_assets or asset_list_file] --> F[process loop]
+    C --> D
+    F --> D
+    D --> G[structured text or plain text]
+    G --> H[parser for extract/json prompts]
+    H --> I[JSON files written by main.py]
 ```
 
-### 关键阶段详解
+## 3. 关键模块
 
-1.  **扫描 (Scanning)**: `utils.file.list_assets` 递归扫描输入目录，识别包含图像文件的资产文件夹。
-2.  **组装 (Composition)**: `AnnotationPipeline` 为每个资产收集多视角图片（Front, Left, Back, Right），并调用 `PromptFactory` 生成对应的 Prompt。
-3.  **推理 (Inference)**: `ModelEngine` 将图像和文本 Prompt 打包发送给 Qwen-VL 模型。
-4.  **解析 (Parsing)**: 获取模型的文本输出，剔除 Markdown 标记（如 \`\`\`json），解析为 Python 字典。
-5.  **持久化 (Persistence)**: 将结果保存为标准 JSON 文件，保持与输入目录一致的层级结构。
+### 3.1 `main.py`
 
-## 3. 模块架构
+职责：
 
-### 3.1 主控模块 (`main.py`)
-*   **职责**: 程序的入口点。
-*   **功能**:
-    *   解析命令行参数（覆盖 Config）。
-    *   初始化全局组件（Engine, Pipeline）。
-    *   执行分块逻辑（计算当前 Job 需要处理哪些资产）。
-    *   管理主循环进度条 (tqdm)。
+- 解析命令行参数
+- 读取并覆盖配置
+- 初始化 `ModelEngine` 与 `AnnotationPipeline`
+- 枚举资产
+- 执行 chunking
+- 根据重试规则决定是否跳过已有输出
+- 将结果写入 `{output_dir}/{asset_name}_annotation.json`
 
-### 3.2 流水线模块 (`core/pipeline.py`)
-*   **职责**: 业务逻辑的编排者。
-*   **类**: `AnnotationPipeline`
-*   **核心方法**: `process_asset(asset_path, prompt_type)`
-    *   它不关心模型怎么跑，只关心“给我结果”。
-    *   它负责将文件路径转换为模型可理解的输入格式（Message List）。
+`asset_name` 本身通常是 `category/asset_id` 这样的相对路径，所以输出自然保留了分类目录层级。
 
-### 3.3 模型引擎 (`core/model.py`)
-*   **职责**: 与底层 AI 框架 (Transformers) 的交互层。
-*   **类**: `ModelEngine`
-*   **特点**:
-    *   封装了 `AutoProcessor` 和 `AutoModel`。
-    *   自动处理多模态输入（将图片 URL/路径 转换为 Tensor）。
-    *   屏蔽了不同模型（Qwen2.5-VL vs Qwen3-VL）的加载细节。
+### 3.2 `core/pipeline.py`
 
-### 3.4 提示词工厂 (`core/prompt.py`)
-*   **职责**: 生成结构化的 Prompt。
-*   **类**: `PromptFactory`
-*   **设计**: 静态方法 `compose_user_prompt` 根据 `prompt_type` 返回不同的模板。支持动态插入变量（如图片数量、场景信息）。
+`AnnotationPipeline.process_asset()` 的真实步骤是：
 
-## 4. 并行处理机制 (Parallelism)
+1. 调 `get_asset_images()` 找图
+2. 用 `PromptFactory.compose_user_prompt()` 生成 prompt
+3. 通过 `_prepare_messages()` 拼出多模态消息
+4. 调 `ModelEngine.inference()` 获取文本结果
+5. 如果 prompt 名里含 `extract` 或 `json`，走 `parse_structured_text_enhanced()`
+6. 成功后覆盖 `category`、规范化 `dimensions` / `mass`
+7. 失败则返回 `raw_output`
 
-为了处理数万级别的资产，项目原生支持基于索引的分块（Chunking）：
+这里最容易被误写错的一点是：**主线不是 JSON 清洗器，而是 structured-text parser。**
 
-*   **原理**: 将资产列表排序后，根据 `num_chunks` 和 `chunk_index` 切片。
-    *   例如：1000 个资产，`num_chunks=10`，`chunk_index=0` 处理 0-99，`chunk_index=1` 处理 100-199。
-*   **优势**: 可以轻松在 Slurm、Kubernetes 或多台服务器上并行启动多个实例，互不干扰。
+### 3.3 `core/model.py`
 
-## 5. 目录结构设计
+当前实现优先使用 `Qwen2_5_VLForConditionalGeneration`，再回退到 `AutoModelForCausalLM`，仅在模型名包含 `Qwen3` 时尝试 `Qwen3VLMoeForConditionalGeneration` 分支。
 
-项目采用“就地输出”或“镜像输出”策略：
+推理时依赖：
 
-*   **输入**: 任意深度的目录结构（如 `category/subcategory/asset_id`）。
-*   **输出**: 自动镜像该结构到 `output_dir`（如 `output/category/subcategory/asset_id_annotation.json`）。
-*   **意义**: 极大方便了后续的数据清洗和入库工作，无需重新建立索引。
+- `AutoProcessor.apply_chat_template()`
+- `qwen_vl_utils.process_vision_info()`
+- `model.generate()`
+
+这说明现有实现最贴近 Qwen 系列多模态接口。
+
+### 3.4 `core/prompt.py`
+
+这里维护 prompt 类型注册表和具体模板。`extract_object_attributes_prompt` 明确要求模型输出带字段头的结构化文本，而不是 JSON 代码块。
+
+### 3.5 `utils/file.py`
+
+- `list_assets()` 递归查找包含图片的叶子目录
+- `get_asset_images()` 先尝试命名视角，再回退到全部图片
+
+## 4. 容错与重试
+
+当前运行时容错并不复杂，但非常实用：
+
+- 已有成功 JSON：默认跳过
+- `raw_output` 文件：自动重试
+- `--retry_incomplete`：只重试字段不完整的资产
+- `--force`：无条件重跑
+
+这种设计直接支撑了历史上的大规模修复与补跑流程。
+
+## 5. 生产结果如何反证架构可行
+
+当前仓库状态记录显示：
+
+- 52,907 个资产已完成标注
+- `raw_output` 失败已清零
+- 五个主字段完整率都是 100%
+
+所以这套架构不是“理论上可扩展”，而是已经用来完成过一次大规模交付。

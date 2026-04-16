@@ -1,6 +1,6 @@
-# 命令行参考手册 (CLI Reference)
+# 命令行参考
 
-`auto_asset_annotator.main` 是程序的入口点。所有配置文件的参数都可以通过命令行参数进行覆盖。
+程序入口为 `python -m auto_asset_annotator.main`。
 
 ## 基本用法
 
@@ -10,51 +10,74 @@ python -m auto_asset_annotator.main [OPTIONS]
 
 ## 参数列表
 
-| 参数 | 缩写 | 类型 | 默认值 | 说明 |
-| :--- | :--- | :--- | :--- | :--- |
-| `--config` | 无 | Path | `config/config.yaml` | 指定配置文件路径。 |
-| `--input_dir` | 无 | Path | (from config) | 覆盖配置文件中的输入目录。 |
-| `--output_dir` | 无 | Path | (from config) | 覆盖配置文件中的输出目录。 |
-| `--model_path` | 无 | Str | (from config) | 覆盖模型路径或名称。 |
-| `--prompt_type` | 无 | Str | (from config) | 指定本次运行的任务类型 (如 `classify_object_category_prompt`)。 |
-| `--num_chunks` | 无 | Int | 1 | 将总任务划分为 N 个块 (用于并行计算)。 |
-| `--chunk_index` | 无 | Int | 0 | 当前进程只处理第 K 个块 (从 0 开始)。 |
+| 参数 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| `--config` | Path | 配置文件路径，默认是 `config/config.yaml`。 |
+| `--input_dir` | Path | 覆盖配置中的输入目录。 |
+| `--output_dir` | Path | 覆盖配置中的输出目录。 |
+| `--model_path` | String | 覆盖配置中的模型路径或模型名。 |
+| `--prompt_type` | String | 覆盖配置中的 prompt 类型。 |
+| `--asset_list_file` | Path | 使用资产列表文件，而不是扫描整个输入目录。 |
+| `--force` | Flag | 即使输出文件已存在，也强制重新标注。 |
+| `--retry_incomplete` | Flag | 仅重试 `material`、`dimensions`、`mass`、`placement` 中存在空值的结果。 |
+| `--num_chunks` | Int | 总分块数，用于并行任务切片。 |
+| `--chunk_index` | Int | 当前作业处理的块索引，从 `0` 开始。 |
 
-## 常见使用场景
+## 常见命令
 
-### 1. 简单运行
+### 默认标注
+
 ```bash
-python -m auto_asset_annotator.main --input_dir /data/assets --output_dir /data/results
+python -m auto_asset_annotator.main --input_dir ./data --output_dir ./output
 ```
 
-### 2. 切换任务类型
-只进行分类，不生成详细属性：
+### 指定 prompt 类型
+
 ```bash
 python -m auto_asset_annotator.main \
-    --prompt_type classify_object_category_prompt \
-    --input_dir /data/assets \
-    --output_dir /data/results/categories
+  --prompt_type classify_object_category_prompt \
+  --input_dir ./data \
+  --output_dir ./output_categories
 ```
 
-### 3. 分布式并行处理 (Slurm/Kubernetes)
-假设你有 100 万个资产，想用 4 台机器并行处理。
+### 使用资产列表文件
 
-**机器 1 (处理 0-25%):**
+```bash
+python -m auto_asset_annotator.main \
+  --asset_list_file archive/temp_lists/failed_assets.txt \
+  --output_dir ./output
+```
+
+### 强制重跑
+
+```bash
+python -m auto_asset_annotator.main \
+  --input_dir ./data \
+  --output_dir ./output \
+  --force
+```
+
+### 仅重试物理属性不完整的资产
+
+```bash
+python -m auto_asset_annotator.main \
+  --input_dir ./data \
+  --output_dir ./output \
+  --retry_incomplete
+```
+
+### 分块并行处理
+
 ```bash
 python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 0
-```
-
-**机器 2 (处理 25-50%):**
-```bash
 python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 1
-```
-
-**机器 3 (处理 50-75%):**
-```bash
 python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 2
-```
-
-**机器 4 (处理 75-100%):**
-```bash
 python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 3
 ```
+
+## 行为说明
+
+- 如果输出文件不存在，资产会被处理。
+- 如果输出文件包含 `raw_output`，资产会在后续运行时自动重试。
+- 如果指定 `--retry_incomplete`，则会检查 `material`、`dimensions`、`mass`、`placement` 是否为空并按需重试。
+- JSON 文件由程序解析 structured text 后写入，不是直接透传模型返回的 JSON。

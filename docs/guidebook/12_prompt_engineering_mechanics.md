@@ -1,88 +1,93 @@
 # Prompt 工程机制 (Prompt Engineering Mechanics)
 
-在 Auto-Asset-Annotator 中，Prompt 不仅仅是一段文字，而是包含逻辑、约束和多模态输入的复杂结构。本文档解析 `PromptFactory` 背后的工程机制。
+在这个项目里，Prompt 工程不是“把问题说漂亮”，而是“让输出足够稳，稳到代码能接住”。
 
-## 1. 结构化输出的艺术 (Structured Output)
+## 1. 当前主线为什么不用“直接 JSON”？
 
-为了让大模型稳定输出 JSON，我们在 Prompt 中应用了 **CoT (Chain of Thought)** 的变体——**“约束链 (Chain of Constraints)”**。
+早期很多多模态项目都会要求模型直接返回 JSON，但真实运行里经常会遇到：
 
-### 核心 Prompt 分析 (`extract_object_attributes_prompt`)
+- 代码块包裹
+- 额外解释文字
+- 语法错误
+- 多对象串在一起
+
+当前主线 prompt `extract_object_attributes_prompt` 采取的是另一条路：
+
+- 要求模型输出 **带明确字段头的 structured text**
+- 再由 `parse_structured_text_enhanced()` 解析成 JSON
+
+这就是当前仓库最值得记住的 Prompt 工程决策。
+
+## 2. 主线属性提取 Prompt 的机制
+
+`extract_object_attributes_prompt` 要求这些头：
+
+- `Category:`
+- `Description:`
+- `Material:`
+- `Dimensions:`
+- `Mass:`
+- `Placement:`
+
+并且明确告诉模型：
+
+- 不要输出 JSON
+- 不要输出代码块
+- 所有字段都必须给出
+
+这相当于把模型限制在一个更窄、但更稳的回答轨道里。
+
+## 3. Prompt 如何和多图输入结合
+
+流水线内部的消息结构是：
 
 ```python
-attribute_query = (
-    "Analyze the provided image and extract the following structured information. "
-    "You MUST respond in strict JSON format with ALL fields required. Do not omit any field.\n\n"
-    "Required JSON structure:\n"
-    "{\n"
-    '  "category": "object type...",\n'
-    '  "description": "comprehensive description...",\n'
-    '  "material": "describe all materials...",\n'
-    # ...
-    "}\n\n"
-    "Important: \n"
-    "1. Return ONLY valid JSON, no additional text\n"
-    "2. ALL fields are mandatory\n"
-    "5. Ensure proper JSON syntax with double quotes"
-)
+[
+    {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": user_prompt},
+            {"type": "image_url", "image": image_path_1},
+            {"type": "image_url", "image": image_path_2},
+            ...
+        ]
+    }
+]
 ```
 
-**设计要点**:
-1.  **明确的角色设定 (Role Definition)**: 虽然未显式写出 `You are an expert...`，但通过指令式语言确立了任务边界。
-2.  **Schema Injection (模式注入)**: 直接在 Prompt 中给出 JSON 的模板。这是最有效的让模型遵循格式的方法。
-3.  **负面约束 (Negative Constraints)**: 明确指出 `"no additional text"`, `"Do not omit"`。
-4.  **Few-Shot vs Zero-Shot**: 目前主要使用 **Zero-Shot (零样本)**，即直接给出指令而不给示例。这是因为 Qwen-VL 在指令遵循方面已经非常强大，且每个资产的差异巨大，固定的样本可能会引入偏见。
+也就是说，Prompt 本身只是一部分；真正的输入是“文本约束 + 多视角图片”的组合。
 
-## 2. 多模态 Prompt 构建
+## 4. 解析器如何配合 Prompt
 
-Prompt 不仅包含文本，还包含图像序列。
+`parse_structured_text_enhanced()` 做了三件事：
 
-```python
-def _prepare_messages(self, user_prompt: str, image_paths: List[str]):
-    content = []
-    content.append({"type": "text", "text": user_prompt})
-    
-    for img_path in image_paths:
-        content.append({"type": "image_url", "image": img_path})
-        
-    return [{"role": "user", "content": content}]
-```
+1. 清理模型输出中的杂质
+2. 如果检测到多对象输出，只抽取第一对象块
+3. 再用字段头正则提取键值
 
-**机制**:
-*   **多图输入**: 系统将所有视角的图片（Front, Left, Back...）作为一个列表传入。
-*   **上下文融合**: 模型会自动融合这些图片的信息。例如，如果正视图看不清材质，模型会参考侧视图或特写图。
-*   **顺序无关性**: 虽然我们按顺序传入，但 Prompt 中并未强调顺序的重要性（除非是 `find_canonical_front_view` 任务），模型主要关注整体特征。
+所以 Prompt 工程和解析器设计是一体的：
 
-## 3. 如何扩展新的 Prompt 类型
+- Prompt 负责让结构出现
+- Parser 负责把结构接住
 
-如果您需要增加新的标注任务（例如：检测物体是否有破损），可以按以下步骤扩展：
+## 5. 给新 Prompt 命名时要动脑子
 
-1.  **修改 `src/auto_asset_annotator/core/prompt.py`**:
-    *   在 `SUPPORTED_PROMPT_TYPES` 列表中添加新类型名称。
-    *   在 `compose_user_prompt` 方法中添加对应的 `elif` 分支。
+当前规则是：
 
-2.  **编写 Prompt 模板**:
-    ```python
-    elif prompt_type == "detect_damage_prompt":
-        return (
-            "Analyze these images for any signs of physical damage.\n"
-            "Output JSON: {\"has_damage\": boolean, \"damage_details\": string}"
-        )
-    ```
+- 名字里包含 `extract`
+- 或名字里包含 `json`
 
-3.  **配置调用**:
-    *   在运行命令时指定 `--prompt_type detect_damage_prompt`，或者修改 `config.yaml`。
+就会触发解析分支。
 
-## 4. 常见问题与调试
+这非常方便，但也意味着你给 prompt 取名时要小心：
 
-*   **JSON 解析失败**:
-    *   **现象**: 日志出现 `[WARN] Failed to parse JSON`。
-    *   **原因**: 模型可能输出了 `Here is the JSON:` 前缀，或者 JSON 语法错误（如末尾多余逗号）。
-    *   **对策**: 
-        *   优化 Prompt 中的“负面约束”。
-        *   在 `pipeline.py` 中增强正则清洗逻辑。
-        *   调整 `temperature` 参数（降低温度可提高格式稳定性）。
+- 需要字段解析：可以利用这条规则
+- 只想要纯文本：别误用这类命名
 
-*   **幻觉 (Hallucination)**:
-    *   **现象**: 描述了图片中不存在的细节（如“木质纹理”实际上是“塑料仿木”）。
-    *   **原因**: 图片分辨率不足或模型过度联想。
-    *   **对策**: 增加高分辨率图片；在 Prompt 中强调 `"describe only observable details"`。
+## 6. 什么时候该改 Prompt，什么时候该改 Parser？
+
+- 输出太松散、字段顺序乱：先改 Prompt
+- 模型偶尔有轻微脏文本或多对象串联：优先改 Parser
+- 想新增字段：Prompt 和 Parser 通常都要一起改
+
+Prompt 工程的目标不是“让模型看起来更聪明”，而是让整条流水线更稳定。

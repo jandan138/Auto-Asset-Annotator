@@ -1,68 +1,88 @@
 # 数据准备指南
 
-为了确保 Auto-Asset-Annotator 能正确读取您的 3D 资产渲染图，请遵循以下目录结构和命名规范。
+为了让程序稳定发现资产和视图图片，输入目录应遵循当前代码所期望的目录形状。
 
-## 目录结构
+## 输入目录结构
 
-项目期望每个 3D 资产都有一个独立的文件夹，所有资产文件夹位于同一个父目录下。
+期望的目录布局如下：
 
 ```text
-/path/to/assets_library/       <-- 输入目录 (--input_dir)
-├── asset_id_001/              <-- 资产文件夹
-│   ├── front.png              <-- 视图文件
-│   ├── left.png
-│   ├── back.png
-│   └── right.png
-├── asset_id_002/
-│   ├── 00_front.jpg
-│   ├── 01_left.jpg
-│   └── ...
-└── ...
+{input_dir}/
+  {category}/
+    {asset_id}/
+      front.png
+      left.png
+      back.png
+      right.png
 ```
 
-## 视图命名与映射
+例如：
 
-不同团队渲染资产时的命名习惯可能不同（如 `front.png` vs `view_0.jpg`）。您**不需要**批量重命名文件，只需在 `config/config.yaml` 中配置 `views` 映射即可。
-
-### 配置示例
-
-打开 `config/config.yaml`，找到 `data.views` 部分：
-
-```yaml
-data:
-  views:
-    # 逻辑名称: [文件名匹配模式列表]
-    front: ["front.png", "0.png", "cam_00.jpg"] 
-    left:  ["left.png", "1.png", "cam_01.jpg"]
-    back:  ["back.png", "2.png", "cam_02.jpg"]
-    right: ["right.png", "3.png", "cam_03.jpg"]
-```
-
-**工作原理**：
-1.  对于每个资产文件夹，程序会尝试寻找 `front` 视图。
-2.  它会依次检查是否存在 `front.png`，如果不存在，检查 `0.png`，以此类推。
-3.  找到第一个匹配的文件作为该视图的输入。
-
-### 缩略图子目录 (Legacy 模式)
-
-如果您的图像位于资产目录下的子文件夹（如 `thumbnails/`）中，请开启以下配置：
-
-```yaml
-data:
-  use_thumbnails_dir: true
-  thumbnails_dir_name: "thumbnails"
-```
-
-此时目录结构应为：
 ```text
-asset_id_001/
-└── thumbnails/
-    ├── front.png
-    └── ...
+data/
+  chair/
+    000123/
+      front.png
+      left.png
+      back.png
+      right.png
+  lamp/
+    000456/
+      0.png
+      1.png
+      2.png
+      3.png
 ```
 
-## 图像格式要求
+`utils/file.py:list_assets()` 会递归扫描 `input_dir`，把包含图片文件的叶子目录视为一个资产，并返回相对路径，例如 `chair/000123`。
 
-*   **格式**: 支持 `.png`, `.jpg`, `.jpeg`, `.bmp`, `.webp`。
-*   **分辨率**: 推荐 512x512 或更高。VLM 会自动缩放，但过低的分辨率会影响细节识别（如材质纹理）。
-*   **背景**: 推荐使用**纯色背景**（灰色或白色）或透明背景，以避免背景干扰模型识别。
+## 视图文件发现规则
+
+默认配置中的 `data.views` 为：
+
+```yaml
+views:
+  front: ["front.png", "0.png"]
+  left: ["left.png", "1.png"]
+  back: ["back.png", "2.png"]
+  right: ["right.png", "3.png"]
+```
+
+程序会按顺序尝试这些命名模式。如果一个资产目录里找不到这些命名视图，`get_asset_images()` 会退回到读取该目录中全部 `.png`、`.jpg`、`.jpeg` 文件并按自然顺序排序。
+
+## 缩略图子目录模式
+
+若配置中启用了：
+
+```yaml
+use_thumbnails_dir: true
+thumbnails_dir_name: "thumbnails"
+```
+
+则会优先在资产目录下的 `thumbnails/` 子目录中查找视图文件。
+
+## 输出目录结构
+
+每个资产的输出文件写入位置为：
+
+```text
+{output_dir}/{category}/{asset_id}_annotation.json
+```
+
+例如：
+
+```text
+output/
+  chair/
+    000123_annotation.json
+  lamp/
+    000456_annotation.json
+```
+
+JSON 内部的顶层键仍然使用资产相对路径，例如 `chair/000123`。
+
+## 文件格式说明
+
+- 当前代码识别的图片扩展名为 `.png`、`.jpg`、`.jpeg`。
+- 同一个资产目录建议只放该资产对应的渲染图，避免把无关图片混入回退扫描结果。
+- 如果使用类别目录，输出也会自动按类别分层保存，便于后续处理。

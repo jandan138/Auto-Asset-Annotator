@@ -1,67 +1,67 @@
 # 第一章：搭建你的魔法工坊
 
-在开始施法之前，我们需要先搭建好工作环境。就像哈利波特需要魔杖和坩埚一样，我们需要**GPU**和**Python环境**。
+施法之前，先把工坊搭好。这个项目的主线依赖并不神秘：**Python 3.10+、PyTorch、Transformers、Qwen 的视觉工具链，以及一块能装下模型的 GPU**。
 
-## 1. 核心能量源：GPU (显卡)
+## 1. 核心能量源：GPU
 
-VLM 模型是一个庞然大物，它需要大量的计算能力。普通的 CPU（电脑的大脑）算得太慢了，我们需要 GPU（显卡）来加速。
+Qwen2.5-VL-7B 不是轻量玩具，加载和推理都需要显卡。
 
-*   **你需要什么**：一台装有 NVIDIA 显卡的电脑或服务器。
-*   **显存 (VRAM)**：这就像工作台的大小。
-    *   **16GB**：勉强够用，可以运行 7B 大小的模型（相当于一个聪明的初中生）。
-    *   **24GB+**：推荐配置，干活更利索。
-    *   **80GB**：土豪配置，可以运行 72B 模型（相当于博士生）。
+- 你需要一台带 NVIDIA GPU 的机器
+- `device_map="auto"` 会尽量帮你把模型放到可用设备上
+- `attn_implementation` 当前配置默认是 `eager`，目的是减少对额外 `flash-attn` 依赖的要求
 
-## 2. 魔法结界：Conda
+## 2. 准备 Python 环境
 
-在编程世界里，不同的软件喜欢打架。为了不让它们打架，我们用 **Conda** 创建一个个独立的“房间”（虚拟环境）。
-
-打开你的终端（Terminal），输入以下咒语（命令）：
+你可以用 Conda，也可以用自己习惯的 venv。关键不是宗教，而是把依赖隔离开。
 
 ```bash
-# 创建一个叫 annotator 的新房间，里面装 Python 3.10
 conda create -n annotator python=3.10 -y
-
-# 走进这个房间
 conda activate annotator
 ```
 
-当你看到命令行前面出现 `(annotator)` 字样时，说明你已经进入了魔法结界。
+## 3. 安装工具箱
 
-## 3. 准备工具箱：安装依赖
-
-进入我们的项目目录，然后安装需要的工具包：
+进入仓库根目录后执行：
 
 ```bash
-cd /path/to/Auto-Asset-Annotator  # 走到项目文件夹
-
-# 安装 requirements.txt 里列出的所有工具
 pip install -r requirements.txt
-
-# 把当前项目安装好，方便随时调用
 pip install -e .
 ```
 
-这一步可能会花点时间，就像是在整理工具箱，把扳手、螺丝刀都摆好。
+这会安装当前主线依赖，包括：
 
-## 4. 召唤守护灵：下载模型
+- `transformers`
+- `torch`
+- `torchvision`
+- `pillow`
+- `natsort`
+- `tqdm`
+- `qwen-vl-utils`
+- `pyyaml`
+- `accelerate`
 
-我们需要把 Qwen-VL 模型下载到本地。这就像是去图书馆把百科全书借回来。
+## 4. 准备模型
 
-由于模型文件很大（几十 GB），我们通常会设置一个专门的存放路径：
+主线配置里的模型路径是：
 
-```bash
-# 告诉电脑：把模型存到这个大硬盘里！
-export HF_HOME=/data/shared/huggingface
+```text
+/cpfs/shared/simulation/zhuzihou/models/Qwen2.5-VL-7B-Instruct
 ```
 
-然后，当你第一次运行程序时，它会自动开始下载。如果你在受限的网络环境（比如公司内网），可能需要手动下载，具体可以参考 `docs/installation/linux_deployment.md`。
+第一次部署时，可以用仓库自带脚本准备模型：
 
----
+```bash
+python scripts/download_model.py
+```
 
-**工坊检查清单**：
-- [ ] 显卡驱动装好了吗？（运行 `nvidia-smi` 看看）
-- [ ] Conda 环境激活了吗？（看到 `(annotator)` 了吗？）
-- [ ] 依赖包安装完了吗？（没有红色的 Error 吧？）
+但请记住：**模型加载是重操作**。如果你只是读文档、修代码或做轻量验证，不要顺手运行标注命令。
 
-一切就绪？太棒了！下一章我们去准备原材料。
+## 5. 工坊自检
+
+可以用一个轻量检查确认环境至少能导入包：
+
+```bash
+python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); import auto_asset_annotator; print('Package loaded successfully')"
+```
+
+看到包能导入，说明工坊已经能点火了。下一章，我们准备原材料。
