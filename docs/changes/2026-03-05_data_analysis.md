@@ -5,6 +5,10 @@
 **Dataset:** `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/output`
 **Total Successful Annotations:** 49,808 files
 
+> Historical record: this file captures the dataset-quality analysis performed on 2026-03-05 before later repair and completion passes.
+>
+> Current relevance: the issue counts and recommendations remain useful for understanding why subsequent fixes were needed, but they describe a superseded historical dataset state.
+
 ---
 
 ## Executive Summary

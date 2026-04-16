@@ -6,6 +6,10 @@
 - `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/src/auto_asset_annotator/core/pipeline.py`
 - `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/src/auto_asset_annotator/core/prompt.py`
 
+> Historical record: this report analyzes the pipeline behavior as it existed during the 2026-03-05 failure investigation.
+>
+> Current relevance: code-path descriptions and line references are historical checkpoints. They remain useful for provenance, but should not be treated as guaranteed current source locations.
+
 ---
 
 ## Executive Summary

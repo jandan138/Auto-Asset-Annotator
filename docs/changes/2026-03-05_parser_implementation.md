@@ -3,6 +3,10 @@
 **Date:** 2026-03-05
 **Task:** Implement parser improvements in pipeline.py to handle multi-object outputs and clean artifacts
 
+> Historical record: this file captures the parser-enhancement change set that addressed 2026-03-05 failure patterns.
+>
+> Current relevance: preserved as implementation history for the parser work; line numbers and exact code references are historical and may drift from the current source tree.
+
 ## Summary
 
 Successfully implemented enhanced parser functionality in `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/src/auto_asset_annotator/core/pipeline.py` to handle common model output issues including multi-object outputs and text artifacts.

@@ -2,6 +2,10 @@
 
 **Date**: 2026-03-09
 
+> Historical record: this file captures the targeted cleanup of 42 annotations whose `description` field was null.
+>
+> Current relevance: preserved as a dated repair log for the null-description issue; not intended as current operational guidance.
+
 ## Context
 
 After completing the backfill of 2,816 missing annotations, verification revealed 42 assets in the target directory with `description: null`. All 42 belong to the original 50,091 batch (not the new 2,816 batch). The VLM model had output null for the description field but the annotations weren't flagged as failures because other fields were present.

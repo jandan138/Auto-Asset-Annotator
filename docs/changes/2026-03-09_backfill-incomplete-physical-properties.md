@@ -2,6 +2,10 @@
 
 **Date**: 2026-03-09
 
+> Historical record: this documents the 2026-03-09 second-pass re-annotation and merge workflow for incomplete physical-property fields.
+>
+> Current relevance: the counts, DLC jobs, and recommendations are preserved as phase history. This is not current runbook guidance.
+
 ## Context
 
 After completing all 52,907 asset annotations and fixing 42 null descriptions, validation revealed that 11,418 assets (21.5%) had empty physical property fields (material, dimensions, mass, placement). The description field was 100% complete. Root cause: VLM model `addCriterion` corruption artifacts causing parse failures on physical property fields while description was captured.
@@ -36,7 +40,7 @@ After completing all 52,907 asset annotations and fixing 42 null descriptions, v
 ```bash
 python scripts/dlc/submit_batch.py --total 8 --name reannotate_incomplete \
     --command_args "--input_dir /cpfs/shared/simulation/zhuzihou/dev/usd-scene-physics-prep/GRScenes-test1/GRScenes_assets \
-    --asset_list_file incomplete_assets.txt --output_dir ./output_reannotate --force"
+    --asset_list_file archive/temp_lists/incomplete_assets.txt --output_dir ./output_reannotate --force"
 ```
 
 ### Jobs

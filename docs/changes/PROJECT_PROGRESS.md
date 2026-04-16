@@ -2,6 +2,10 @@
 
 **最后更新**: 2026-03-09
 
+> 历史记录：这是 2026-03-09 阶段收尾时写下的项目里程碑总览。
+>
+> 当前相关性：用于回顾 2026-03-05 至 2026-03-09 的修复、补标注与字段补全时间线，不应视为当前操作手册。
+
 ## 最终状态
 
 **52,907 个资产，5 个字段全部 100% 填充完成。**
@@ -83,6 +87,8 @@ VLM 对 2,148 个资产（主要是 wall/ground/ceiling/other 等结构性元素
 ```
 VLM 标注 → output/{cat}/{id}_annotation.json → fill_annotations.py → GRScenes_assets/{cat}/{id}/{id}_annotation.json
 ```
+
+说明：这是当时的数据交付链路摘要，保留原始阶段语境。
 
 - **源目录**: `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/output/`
 - **目标目录**: `/cpfs/shared/simulation/zhuzihou/dev/usd-scene-physics-prep/GRScenes-test1/GRScenes_assets/`

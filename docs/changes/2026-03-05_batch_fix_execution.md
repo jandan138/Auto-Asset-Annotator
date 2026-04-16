@@ -4,6 +4,10 @@
 **Script**: `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/scripts/fix_existing_annotations.py`
 **Target Directory**: `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/output`
 
+> Historical record: this file records the one-time batch normalization run executed on 2026-03-05.
+>
+> Current relevance: retain it as execution history for that repair pass, not as a standing operational procedure.
+
 ---
 
 ## 1. Pre-execution Status

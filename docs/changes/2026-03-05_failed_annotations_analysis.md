@@ -4,6 +4,10 @@
 **Total Failed Files:** 283
 **Analysis Method:** Automated pattern detection on raw_output field
 
+> Historical record: this is the detailed analysis snapshot for the 283 failed annotations investigated on 2026-03-05.
+>
+> Current relevance: keep it as dated incident analysis. It explains the failure mix at that moment and is not a live dashboard.
+
 ---
 
 ## 1. Summary Statistics

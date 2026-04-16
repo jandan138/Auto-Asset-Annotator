@@ -5,6 +5,10 @@
 **Status:** Task Planned - Pending Execution
 **Team:** dlc-rerun-team
 
+> Historical record: this file is the pre-execution plan/report for the stubborn-asset DLC rerun campaign.
+>
+> Current relevance: later 2026-03-06 reports capture execution outcomes. Keep this document as planning history rather than current guidance.
+
 ---
 
 ## Executive Summary

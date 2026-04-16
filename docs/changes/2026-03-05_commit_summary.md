@@ -1,5 +1,9 @@
 # Commit Summary - 2026-03-05
 
+> Historical record: this is a dated summary of the commits and git state recorded on 2026-03-05.
+>
+> Current relevance: commit hashes and branch status are intentionally preserved as historical facts and should not be interpreted as the current repository state.
+
 ## Overview
 Final verification and commit of fixes for the Auto-Asset-Annotator project to ensure consistent output format for dimensions, mass, and category fields.
 

@@ -3,6 +3,10 @@
 **Date:** 2026-03-05
 **Total Failed Files Analyzed:** 283
 
+> Historical record: this file categorizes the `raw_output` failure patterns seen during the 2026-03-05 investigation.
+>
+> Current relevance: preserved for postmortem context. The percentages and recommendations reflect that historical failure set, not the present repository state.
+
 ## Executive Summary
 
 Analysis of failed annotation files (those containing `raw_output` fields) reveals distinct patterns in model output failures. The vast majority (96.1%) are due to a specific model output issue where the model outputs "**Image" followed only by newlines. The remaining failures are primarily due to multi-object outputs that the current parser cannot handle.

@@ -2,6 +2,10 @@
 
 **Date**: 2026-03-09
 
+> Historical record: this file captures the 2026-03-09 default-fill pass for incomplete physical properties.
+>
+> Current relevance: keep using it as a dated implementation/result record. It is not the current operational doc for routine usage.
+
 ## Summary
 
 Filled empty physical property fields (material, mass, placement) for 2,148 assets using category-based default values. Dimensions were intentionally left unfilled as they are too model-specific to generalize.
@@ -34,10 +38,10 @@ Values were derived from:
 
 ```bash
 # Dry-run
-python scripts/fill_defaults.py --output_dir ./output --asset_list remaining_incomplete.txt
+python scripts/fill_defaults.py --output_dir ./output --asset_list archive/temp_lists/remaining_incomplete.txt
 
 # Apply
-python scripts/fill_defaults.py --output_dir ./output --asset_list remaining_incomplete.txt --apply
+python scripts/fill_defaults.py --output_dir ./output --asset_list archive/temp_lists/remaining_incomplete.txt --apply
 
 # Propagate to target directory
 python scripts/fill_annotations.py --apply

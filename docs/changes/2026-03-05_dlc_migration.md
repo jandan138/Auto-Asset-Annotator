@@ -4,6 +4,10 @@
 **Project**: Auto-Asset-Annotator DLC Remote Job Submission
 **Status**: Completed
 
+> Historical record: this change log captures the original DLC migration effort completed on 2026-03-05.
+>
+> Current relevance: use it as implementation history for the migration and early testing period, not as the primary current DLC operating guide.
+
 ---
 
 ## Summary

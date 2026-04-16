@@ -2,6 +2,10 @@
 
 **日期**: 2026-03-09
 
+> 历史记录：记录 2026-03-09 物理属性补全过程中的最后一步。
+>
+> 当前相关性：这是一次性历史执行报告，保留当时的数量、命令和结论，不作为当前默认操作指南。
+
 ## 背景
 
 在 material/mass/placement 全部填充完毕后，还剩 1,911 个资产的 dimensions 字段为空（3.6%）。
@@ -28,7 +32,7 @@
 ### 执行
 
 ```bash
-python scripts/fill_defaults.py --output_dir ./output --asset_list final_remaining.txt --fill_dimensions --apply
+python scripts/fill_defaults.py --output_dir ./output --asset_list archive/temp_lists/final_remaining.txt --fill_dimensions --apply
 python scripts/fill_annotations.py --apply
 ```
 

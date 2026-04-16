@@ -5,6 +5,10 @@
 **Status:** Partially Complete - Batch 4 Pending Retry
 **Team:** dlc-rerun-team
 
+> Historical record: this report preserves the mid-stream status after batches 1-3 succeeded and batch 4 still needed a retry.
+>
+> Current relevance: later same-day documents continued this story. Read this as an intermediate checkpoint, not the final project state.
+
 ---
 
 ## Executive Summary

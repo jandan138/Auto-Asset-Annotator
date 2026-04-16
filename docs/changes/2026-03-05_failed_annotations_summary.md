@@ -4,6 +4,10 @@
 **Total Failed Annotations:** 283 (0.56% of 50,091)
 **Status:** Investigation Complete, Parser Improvements Implemented
 
+> Historical record: this summarizes the 2026-03-05 investigation into the first major `raw_output` failure set.
+>
+> Current relevance: preserve this as the dated incident summary. The failure counts and next steps belong to that phase and were later resolved by follow-on work.
+
 ---
 
 ## Executive Summary
@@ -149,13 +153,13 @@ OK
 # Analyze failures
 python scripts/reannotate_failures.py --output_dir ./output --analyze-only
 
-# Save list for re-annotation
+# Save image-only subset for targeted re-annotation
 python scripts/reannotate_failures.py --output_dir ./output \
-    --filter_type image_only --save_list failed_assets.txt
+    --filter_type image_only --save_list stubborn_assets.txt
 
 # Use with main pipeline
 python -m auto_asset_annotator.main \
-    --asset_list_file failed_assets.txt \
+    --asset_list_file stubborn_assets.txt \
     --input_dir /path/to/input \
     --output_dir ./output \
     --force
@@ -192,8 +196,8 @@ python -m auto_asset_annotator.main \
 2. **Re-annotate Image-Only Failures** (275 files)
    ```bash
    python scripts/reannotate_failures.py --output_dir ./output \
-       --save_list stubborn_assets.txt
-   # Then re-run with main pipeline
+        --save_list stubborn_assets.txt
+    # Then re-run with main pipeline
    ```
 
 ### Future Improvements

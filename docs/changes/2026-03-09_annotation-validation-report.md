@@ -3,6 +3,10 @@
 **Date**: 2026-03-09
 **Target Directory**: `/cpfs/shared/simulation/zhuzihou/dev/usd-scene-physics-prep/GRScenes-test1/GRScenes_assets`
 
+> Historical record: this validation snapshot reflects the dataset state on 2026-03-09 before the later physical-property completion passes finished.
+>
+> Current relevance: keep it as a dated checkpoint. Some "ready for use" conclusions are historically accurate for that moment but were later superseded by full 100% completion.
+
 ## Overall Summary
 
 | Metric | Value |

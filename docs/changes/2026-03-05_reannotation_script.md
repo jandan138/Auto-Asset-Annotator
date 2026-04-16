@@ -3,6 +3,10 @@
 **Date:** 2026-03-05
 **Script:** `/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/scripts/reannotate_failures.py`
 
+> Historical record: this documents the initial implementation of the failure-analysis and retry-list script.
+>
+> Current relevance: keep it as an implementation log. Examples remain useful historically, but current routine usage should be taken from maintained operational docs.
+
 ## Overview
 
 Created a comprehensive re-annotation script for analyzing and retrying failed asset annotations. The script scans output directories for annotation files containing `raw_output` fields (indicating parse failures) and categorizes them for targeted retry strategies.
@@ -49,7 +53,7 @@ Top 10 categories by failure count:
 python scripts/reannotate_failures.py --output_dir ./output --analyze-only
 
 # Save all failed assets to a list
-python scripts/reannotate_failures.py --output_dir ./output --save_list failed_assets.txt
+python scripts/reannotate_failures.py --output_dir ./output --save_list archive/temp_lists/failed_assets.txt
 
 # Save only specific failure type
 python scripts/reannotate_failures.py --output_dir ./output \
@@ -62,7 +66,7 @@ The generated asset list can be used with the main annotation pipeline:
 
 ```bash
 python -m auto_asset_annotator.main \
-    --asset_list_file failed_assets.txt \
+    --asset_list_file archive/temp_lists/failed_assets.txt \
     --input_dir /path/to/input \
     --output_dir ./output \
     --force

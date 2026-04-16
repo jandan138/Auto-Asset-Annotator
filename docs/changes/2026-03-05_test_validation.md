@@ -1,5 +1,9 @@
 # Test Validation Report - 2026-03-05
 
+> Historical record: this report captures the validation run performed for the 2026-03-05 normalization and parser changes.
+>
+> Current relevance: test outputs, filenames, and readiness statements are preserved as dated evidence for that change set rather than a live QA report.
+
 ## Summary
 
 All fixes have been validated and are working correctly. The test suite confirms that:
