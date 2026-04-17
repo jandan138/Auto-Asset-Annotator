@@ -16,7 +16,7 @@ if [ $# -lt 3 ]; then
     echo ""
     echo "Environment Variables (can override defaults):"
     echo "  DLC_WORKSPACE_ID : DLC workspace ID (default: 270969)"
-    echo "  DLC_RESOURCE_ID  : DLC resource quota ID (default: quotalplclkpgjgv)"
+    echo "  DLC_RESOURCE_ID  : Optional quota override (default: resolved from GPU template)"
     echo "  DLC_IMAGE        : Docker image URL for VLM inference"
     echo "  DLC_CODE_ROOT    : Code root directory in container"
     exit 1
@@ -26,6 +26,28 @@ fi
 TASK_NAME=$1
 CHUNK_ID=$2
 CHUNK_TOTAL=$3
+
+is_non_negative_int() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+if ! is_non_negative_int "$CHUNK_ID"; then
+    echo "ERROR: CHUNK_ID must be a non-negative integer, got: '$CHUNK_ID'" >&2
+    exit 1
+fi
+
+if ! is_non_negative_int "$CHUNK_TOTAL" || [ "$CHUNK_TOTAL" -lt 1 ]; then
+    echo "ERROR: CHUNK_TOTAL must be a positive integer, got: '$CHUNK_TOTAL'" >&2
+    exit 1
+fi
+
+if [ "$CHUNK_ID" -ge "$CHUNK_TOTAL" ]; then
+    echo "ERROR: CHUNK_ID must be less than CHUNK_TOTAL (got $CHUNK_ID >= $CHUNK_TOTAL)" >&2
+    exit 1
+fi
 
 # Data sources (optional, with default)
 # Default data sources for the VLM annotation project
@@ -45,25 +67,13 @@ WORKSPACE_ID=${DLC_WORKSPACE_ID:-"270969"}
 DLC_PROFILE=${DLC_PROFILE:-"local_hf_default"}
 case "$DLC_PROFILE" in
     api_light)
-        PROFILE_GPU=1
-        PROFILE_CPU=8
-        PROFILE_MEMORY=48Gi
-        PROFILE_SHARED_MEMORY=48Gi
-        PROFILE_RESOURCE_ID="quotalplclkpgjgv"
+        PROFILE_GPU_COUNT=1
         ;;
     local_hf_default)
-        PROFILE_GPU=1
-        PROFILE_CPU=16
-        PROFILE_MEMORY=118Gi
-        PROFILE_SHARED_MEMORY=118Gi
-        PROFILE_RESOURCE_ID="quotalplclkpgjgv"
+        PROFILE_GPU_COUNT=1
         ;;
     local_hf_heavy)
-        PROFILE_GPU=1
-        PROFILE_CPU=24
-        PROFILE_MEMORY=160Gi
-        PROFILE_SHARED_MEMORY=160Gi
-        PROFILE_RESOURCE_ID="quotalplclkpgjgv"
+        PROFILE_GPU_COUNT=4
         ;;
     *)
         echo "ERROR: Unsupported DLC_PROFILE: $DLC_PROFILE" >&2
@@ -71,11 +81,47 @@ case "$DLC_PROFILE" in
         ;;
 esac
 
-WORKER_GPU=${DLC_WORKER_GPU:-"$PROFILE_GPU"}
-WORKER_CPU=${DLC_WORKER_CPU:-"$PROFILE_CPU"}
-WORKER_MEMORY=${DLC_WORKER_MEMORY:-"$PROFILE_MEMORY"}
-WORKER_SHARED_MEMORY=${DLC_WORKER_SHARED_MEMORY:-"$PROFILE_SHARED_MEMORY"}
-RESOURCE_ID=${DLC_RESOURCE_ID:-"$PROFILE_RESOURCE_ID"}
+GPU_COUNT=${DLC_GPU_COUNT:-${DLC_WORKER_GPU:-$PROFILE_GPU_COUNT}}
+case "$GPU_COUNT" in
+    1)
+        TPL_GPU=1
+        TPL_CPU=14
+        TPL_MEM=100Gi
+        TPL_SHMEM=100Gi
+        TPL_RES=quota1r947pmazvk
+        ;;
+    2)
+        TPL_GPU=2
+        TPL_CPU=28
+        TPL_MEM=200Gi
+        TPL_SHMEM=200Gi
+        TPL_RES=quota1r947pmazvk
+        ;;
+    4)
+        TPL_GPU=4
+        TPL_CPU=56
+        TPL_MEM=400Gi
+        TPL_SHMEM=400Gi
+        TPL_RES=quota1r947pmazvk
+        ;;
+    8)
+        TPL_GPU=8
+        TPL_CPU=128
+        TPL_MEM=960Gi
+        TPL_SHMEM=960Gi
+        TPL_RES=quotaksvqq2oh2pg
+        ;;
+    *)
+        echo "ERROR: Unsupported GPU count: $GPU_COUNT. Supported values: 1, 2, 4, 8." >&2
+        exit 1
+        ;;
+esac
+
+WORKER_GPU=${DLC_WORKER_GPU:-"$TPL_GPU"}
+WORKER_CPU=${DLC_WORKER_CPU:-"$TPL_CPU"}
+WORKER_MEMORY=${DLC_WORKER_MEMORY:-"$TPL_MEM"}
+WORKER_SHARED_MEMORY=${DLC_WORKER_SHARED_MEMORY:-"$TPL_SHMEM"}
+RESOURCE_ID=${DLC_RESOURCE_ID:-"$TPL_RES"}
 
 # Docker Image for VLM Inference
 # Using Isaac Sim 4.5.0 image (pre-configured with CUDA and Python)

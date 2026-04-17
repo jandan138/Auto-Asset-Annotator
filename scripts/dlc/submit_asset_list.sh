@@ -40,6 +40,15 @@ if [ -z "$ASSET_LIST_FILE" ]; then
     exit 1
 fi
 
+ASSET_LIST_CHECK_PATH="$ASSET_LIST_FILE"
+if [ ! -e "$ASSET_LIST_CHECK_PATH" ] && [ -e "$CODE_ROOT/$ASSET_LIST_FILE" ]; then
+    ASSET_LIST_CHECK_PATH="$CODE_ROOT/$ASSET_LIST_FILE"
+fi
+if [ ! -r "$ASSET_LIST_CHECK_PATH" ]; then
+    echo "ERROR: asset list file is not readable: $ASSET_LIST_FILE" >&2
+    exit 1
+fi
+
 COMMAND_ARGV=(
     --input_dir "$INPUT_DIR"
     --output_dir "$OUTPUT_DIR"

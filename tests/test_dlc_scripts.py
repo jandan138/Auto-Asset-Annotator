@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -33,10 +34,17 @@ class TestDLCScripts(unittest.TestCase):
         self.assertIn("--output_dir '/tmp/out;semi'", result.stdout)
 
     def test_submit_retry_failed_wrapper_shell_escapes_asset_list_path(self):
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, prefix="failed assets", suffix=".txt"
+        ) as f:
+            f.write("chair/abc123\n")
+            asset_list = f.name
+        self.addCleanup(lambda: os.path.exists(asset_list) and os.remove(asset_list))
+
         env = os.environ.copy()
         env.update(
             {
-                "ASSET_LIST_FILE": "/tmp/failed assets.txt",
+                "ASSET_LIST_FILE": asset_list,
             }
         )
 
@@ -49,7 +57,7 @@ class TestDLCScripts(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0)
-        self.assertIn("--asset_list_file '/tmp/failed assets.txt'", result.stdout)
+        self.assertIn(f"--asset_list_file {shlex.quote(asset_list)}", result.stdout)
 
     def test_submit_retry_incomplete_wrapper_shell_escapes_paths(self):
         env = os.environ.copy()
@@ -73,6 +81,13 @@ class TestDLCScripts(unittest.TestCase):
         self.assertIn("--output_dir '/tmp/out;semi'", result.stdout)
 
     def test_submit_asset_list_wrapper_shell_escapes_paths(self):
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, prefix="failed assets", suffix=".txt"
+        ) as f:
+            f.write("chair/abc123\n")
+            asset_list = f.name
+        self.addCleanup(lambda: os.path.exists(asset_list) and os.remove(asset_list))
+
         env = os.environ.copy()
         env.update(
             {
@@ -87,7 +102,7 @@ class TestDLCScripts(unittest.TestCase):
                 str(SCRIPTS_DIR / "submit_asset_list.sh"),
                 "--dry-run",
                 "--asset_list_file",
-                "/tmp/failed assets.txt",
+                asset_list,
             ],
             capture_output=True,
             text=True,
@@ -98,7 +113,7 @@ class TestDLCScripts(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("--input_dir '/tmp/assets with spaces'", result.stdout)
         self.assertIn("--output_dir '/tmp/out;semi'", result.stdout)
-        self.assertIn("--asset_list_file '/tmp/failed assets.txt'", result.stdout)
+        self.assertIn(f"--asset_list_file {shlex.quote(asset_list)}", result.stdout)
 
     def test_python_runtime_supports_python_c_flag(self):
         result = subprocess.run(
@@ -254,7 +269,62 @@ class TestDLCScripts(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("api_light", result.stdout)
         self.assertIn("Resolved config summary", result.stdout)
-        self.assertIn("--worker_cpu=8", result.stdout)
+        self.assertIn("Resource ID:    quota1r947pmazvk", result.stdout)
+        self.assertIn("Worker CPU:     14", result.stdout)
+        self.assertIn("Worker Memory:  100Gi", result.stdout)
+
+    def test_launch_job_8gpu_uses_more_gpu_quota_template(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_dlc = Path(tmp) / "dlc"
+            fake_dlc.write_text("#!/bin/bash\nprintf '%s\n' \"$*\"\n")
+            fake_dlc.chmod(0o755)
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "DLC_BIN": str(fake_dlc),
+                    "DLC_CODE_ROOT": str(REPO_ROOT),
+                    "DLC_WORKER_GPU": "8",
+                    "DLC_PROFILE": "local_hf_heavy",
+                }
+            )
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(SCRIPTS_DIR / "launch_job.sh"),
+                    "probe",
+                    "0",
+                    "1",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=REPO_ROOT,
+                env=env,
+            )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Resource ID:    quotaksvqq2oh2pg", result.stdout)
+        self.assertIn("Worker CPU:     128", result.stdout)
+        self.assertIn("Worker Memory:  960Gi", result.stdout)
+
+    def test_launch_job_rejects_negative_chunk_id(self):
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "launch_job.sh"), "probe", "-1", "4"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_launch_job_rejects_chunk_id_out_of_range(self):
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "launch_job.sh"), "probe", "4", "4"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
+        self.assertNotEqual(result.returncode, 0)
 
     def test_launch_job_default_command_does_not_duplicate_chunk_args(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -396,6 +466,138 @@ class TestDLCScripts(unittest.TestCase):
         self.assertIn("--model_backend openai_compatible", result.stdout)
         self.assertIn("--api_base_url https://example.invalid/v1", result.stdout)
         self.assertIn("--api_key_env TEST_API_KEY", result.stdout)
+
+    def test_python_runtime_rejects_missing_api_requirements(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code_root = Path(tmp)
+            fake_repo_package = code_root / "auto_asset_annotator"
+            fake_repo_package.mkdir()
+            (fake_repo_package / "__init__.py").write_text("")
+
+            fake_python = code_root / ".venv_dlc" / "bin" / "python"
+            fake_python.parent.mkdir(parents=True)
+            fake_python.write_text(
+                '#!/bin/bash\nif [ "$1" = "-c" ]; then exit 0; fi\nexit 0\n'
+            )
+            fake_python.chmod(0o755)
+
+            env = os.environ.copy()
+            env["DLC_CODE_ROOT"] = str(code_root)
+            env["MODEL_BACKEND"] = "openai_compatible"
+            env.pop("API_BASE_URL", None)
+            env.pop("API_KEY_ENV", None)
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(SCRIPTS_DIR / "python_runtime.sh"),
+                    "-m",
+                    "auto_asset_annotator.main",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=REPO_ROOT,
+                env=env,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("API_BASE_URL is required", result.stderr)
+
+    def test_submit_asset_list_requires_existing_file(self):
+        result = subprocess.run(
+            [
+                "bash",
+                str(SCRIPTS_DIR / "submit_asset_list.sh"),
+                "--dry-run",
+                "--asset_list_file",
+                "/tmp/does-not-exist.txt",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_submit_asset_list_dry_run_accepts_existing_file(self):
+        with tempfile.NamedTemporaryFile("w", delete=False) as f:
+            f.write("chair/abc123\n")
+            asset_list = f.name
+        self.addCleanup(lambda: os.path.exists(asset_list) and os.remove(asset_list))
+        result = subprocess.run(
+            [
+                "bash",
+                str(SCRIPTS_DIR / "submit_asset_list.sh"),
+                "--dry-run",
+                "--asset_list_file",
+                asset_list,
+            ],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
+        self.assertEqual(result.returncode, 0)
+
+    def test_submit_probe_supports_dry_run(self):
+        with tempfile.NamedTemporaryFile("w", delete=False) as f:
+            f.write("chair/abc123\n")
+            asset_list = f.name
+        self.addCleanup(lambda: os.path.exists(asset_list) and os.remove(asset_list))
+
+        env = os.environ.copy()
+        env.update(
+            {
+                "MODEL_BACKEND": "openai_compatible",
+                "ASSET_LIST_FILE": asset_list,
+                "API_BASE_URL": "https://example.invalid/v1",
+                "API_KEY_ENV": "TEST_API_KEY",
+            }
+        )
+
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "submit_probe.sh"), "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("annotate_probe", result.stdout)
+        self.assertIn("--asset_list_file", result.stdout)
+
+    def test_submit_probe_requires_explicit_backend(self):
+        with tempfile.NamedTemporaryFile("w", delete=False) as f:
+            f.write("chair/abc123\n")
+            asset_list = f.name
+        self.addCleanup(lambda: os.path.exists(asset_list) and os.remove(asset_list))
+
+        env = os.environ.copy()
+        env["ASSET_LIST_FILE"] = asset_list
+        env.pop("MODEL_BACKEND", None)
+
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "submit_probe.sh"), "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env=env,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires explicit MODEL_BACKEND", result.stderr)
+
+    def test_submit_probe_requires_explicit_asset_list(self):
+        env = os.environ.copy()
+        env["MODEL_BACKEND"] = "local_hf"
+        env.pop("ASSET_LIST_FILE", None)
+
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "submit_probe.sh"), "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env=env,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires ASSET_LIST_FILE", result.stderr)
 
     def test_run_task_named_mode_forwards_supported_env_vars_as_cli_flags(self):
         with tempfile.TemporaryDirectory() as tmp:

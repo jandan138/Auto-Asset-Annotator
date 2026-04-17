@@ -12,6 +12,15 @@ OUTPUT_DIR=${OUTPUT_DIR:-/data/results}
 ASSET_LIST_FILE=${ASSET_LIST_FILE:-archive/temp_lists/failed_assets.txt}
 EXTRA_MAIN_ARGS=${EXTRA_MAIN_ARGS:-}
 
+FAILED_LIST_CHECK_PATH="$ASSET_LIST_FILE"
+if [ ! -e "$FAILED_LIST_CHECK_PATH" ] && [ -e "$CODE_ROOT/$ASSET_LIST_FILE" ]; then
+    FAILED_LIST_CHECK_PATH="$CODE_ROOT/$ASSET_LIST_FILE"
+fi
+if [ ! -r "$FAILED_LIST_CHECK_PATH" ]; then
+    echo "ERROR: failed-asset list is not readable: $ASSET_LIST_FILE" >&2
+    exit 1
+fi
+
 COMMAND_ARGV=(
     --input_dir "$INPUT_DIR"
     --output_dir "$OUTPUT_DIR"
