@@ -106,6 +106,9 @@ For large-scale distributed annotation on Alibaba Cloud PAI-DLC:
 # Preferred operator entrypoint: wrapper script around submit_batch.py
 bash scripts/dlc/submit_annotate.sh --dry-run
 
+# Tiny probe path (run with --dry-run first, remove it only for a minimal real probe)
+MODEL_BACKEND=openai_compatible ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt bash scripts/dlc/submit_probe.sh --dry-run
+
 # Retry failed assets
 bash scripts/dlc/submit_retry_failed.sh --dry-run
 
@@ -126,6 +129,13 @@ python scripts/dlc/submit_batch.py --total 8 --name classify_task \
 ```
 
 The upgraded chain is `submit_*.sh -> submit_batch.py -> launch_job.sh -> run_task.sh -> python_runtime.sh -> python -m auto_asset_annotator.main`.
+
+The current launcher also follows the newer smartbot quota split:
+
+- `1/2/4 GPU` -> `quota1r947pmazvk`
+- `8 GPU` -> `quotaksvqq2oh2pg`
+
+Semantic profiles (`api_light`, `local_hf_default`, `local_hf_heavy`) are still the preferred operator interface, but they now resolve through those canonical GPU-count templates.
 
 Preferred operator entrypoints are the wrapper scripts in `scripts/dlc/`. Use raw `submit_batch.py` only for non-standard chunk-mode batches.
 

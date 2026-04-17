@@ -79,3 +79,4 @@ python -m auto_asset_annotator.main --input_dir /path/to/assets --output_dir /pa
 - 常见问题: `docs/troubleshooting/common_issues.md`
 
 For maintained Alibaba Cloud PAI-DLC operations, use the wrapper-first workflow documented in `docs/dlc/README.md`.
+For the smallest safe real-submit path, use `scripts/dlc/submit_probe.sh` after a successful dry-run. The probe wrapper requires an explicit backend and an explicit small `ASSET_LIST_FILE`.

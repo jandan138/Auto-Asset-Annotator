@@ -20,6 +20,7 @@ Use the wrapper scripts for routine operations. Use `submit_batch.py` directly o
 - Retry assets from `archive/temp_lists/failed_assets.txt`: `bash scripts/dlc/submit_retry_failed.sh`
 - Retry incomplete physical-property results: `bash scripts/dlc/submit_retry_incomplete.sh`
 - Submit an explicit asset list: `bash scripts/dlc/submit_asset_list.sh --asset_list_file <path>`
+- Submit a tiny real/probe job: `MODEL_BACKEND=<backend> ASSET_LIST_FILE=<small-list> bash scripts/dlc/submit_probe.sh`
 - Raw batch submission for custom `main.py` flags: `python scripts/dlc/submit_batch.py ... --command_args "..."`
 
 Direct `run_task.sh` named modes (`annotate`, `classify`, `extract`, `custom`) still exist for debugging, but chunk mode is the maintained DLC operator path.
@@ -71,7 +72,45 @@ python scripts/dlc/submit_batch.py --total 4 --name classify_assets \
 - `local_hf_default`: default local VLM inference profile
 - `local_hf_heavy`: larger local profile for heavier local runs
 
-The launcher prints a resolved config summary before submission. You can still override individual resolved values with `DLC_WORKER_GPU`, `DLC_WORKER_CPU`, `DLC_WORKER_MEMORY`, `DLC_WORKER_SHARED_MEMORY`, and `DLC_RESOURCE_ID`.
+These semantic profiles are now backed by canonical GPU-count templates and the newer smartbot sub-quota split:
+
+- `1/2/4 GPU` -> `quota1r947pmazvk`
+- `8 GPU` -> `quotaksvqq2oh2pg`
+
+Current profile defaults:
+
+- `api_light` -> `1 GPU` template
+- `local_hf_default` -> `1 GPU` template
+- `local_hf_heavy` -> `4 GPU` template
+
+The launcher prints a resolved config summary before submission. You can still override individual resolved values with `DLC_GPU_COUNT`, `DLC_WORKER_GPU`, `DLC_WORKER_CPU`, `DLC_WORKER_MEMORY`, `DLC_WORKER_SHARED_MEMORY`, and `DLC_RESOURCE_ID`.
+
+## Probe Workflow
+
+Use `submit_probe.sh` for the smallest safe real-submit path.
+
+The probe wrapper keeps `TOTAL=1` by default, but more importantly it requires an explicit `ASSET_LIST_FILE` so the probe scope stays tiny and operator-controlled.
+
+It also requires an explicit `MODEL_BACKEND`, so the probe cannot silently fall back to the repository's checked-in default backend.
+
+Examples:
+
+```bash
+# API-backed probe (dry-run first)
+DLC_PROFILE=api_light TOTAL=1 NAME=api_probe \
+ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt \
+MODEL_BACKEND=openai_compatible MODEL_PATH=gemini-2.5-flash-image \
+API_BASE_URL=http://your-host API_KEY_ENV=NEWAPI_API_KEY \
+bash scripts/dlc/submit_probe.sh --dry-run
+
+# Local-HF probe (dry-run first)
+DLC_PROFILE=local_hf_default TOTAL=1 NAME=local_probe \
+ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt \
+MODEL_BACKEND=local_hf MODEL_PATH=/path/to/local/model \
+bash scripts/dlc/submit_probe.sh --dry-run
+```
+
+The real submission path is the same command without `--dry-run`.
 
 ## Monitoring And Logs
 
