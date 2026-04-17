@@ -13,6 +13,9 @@
 - `--input_dir`
 - `--output_dir`
 - `--model_path`
+- `--model_backend`
+- `--api_base_url`
+- `--api_key_env`
 - `--prompt_type`
 - `--asset_list_file`
 - `--num_chunks`
@@ -82,11 +85,12 @@ if "json" in prompt_type.lower() or "extract" in prompt_type.lower():
 
 当前加载顺序是：
 
-1. `Qwen2_5_VLForConditionalGeneration`
-2. `AutoModelForCausalLM`
-3. 如果模型名含 `Qwen3`，再尝试 `Qwen3VLMoeForConditionalGeneration`
+1. 如果模型名含 `Qwen3`，先尝试 `Qwen3VLMoeForConditionalGeneration`
+2. `Qwen2_5_VLForConditionalGeneration`
+3. `AutoModelForCausalLM`
+4. `AutoModel`
 
-这就是为什么文档里应该写“Qwen2.5-VL first”，而不是笼统地写成“通用任意多模态模型加载器”。
+这就是为什么文档里应该把它描述成“Qwen 优先、带通用回退”，而不是笼统地写成“通用任意多模态模型加载器”。
 
 ### 推理输入
 

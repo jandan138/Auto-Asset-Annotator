@@ -1,23 +1,25 @@
 # 如何扩展模型加载
 
-当前主线实现围绕 `src/auto_asset_annotator/core/model.py` 展开，优先服务于 **Qwen2.5-VL** 本地权重加载。
+当前主线实现围绕 `src/auto_asset_annotator/core/model.py` 展开，主维护路径仍然优先服务于本地 **Qwen** 系列加载，但真实类选择顺序已经比早期版本更宽。
 
 ## 当前加载路径
 
-`ModelEngine.__init__()` 的实际流程是：
+`LocalHFEngine.__init__()` 的实际流程是：
 
 1. 读取 `ModelConfig`
-2. 优先尝试导入 `transformers.Qwen2_5_VLForConditionalGeneration`
-3. 如果该类不可用，则回退到 `AutoModelForCausalLM`
-4. 仅当 `config.name` 中包含 `Qwen3` 且前一步仍是通用回退类时，再尝试 `Qwen3VLMoeForConditionalGeneration`
-5. 用同一个 `config.name` 调用 `from_pretrained(...)`
-6. 再用 `AutoProcessor.from_pretrained(...)` 加载 processor
+2. 如果 `config.name` 包含 `Qwen3`，先尝试导入 `transformers.Qwen3VLMoeForConditionalGeneration`
+3. 再尝试导入 `transformers.Qwen2_5_VLForConditionalGeneration`
+4. 如果显式多模态类不可用，则回退到 `AutoModelForCausalLM`
+5. 最后才尝试 `AutoModel`
+6. 用同一个 `config.name` 调用 `from_pretrained(...)`
+7. 再用 `AutoProcessor.from_pretrained(...)` 加载 processor
 
-也就是说，当前代码的默认和优先路径是：
+也就是说，当前代码的主维护路径仍然偏向 Qwen，但真实加载顺序已经是：
 
-- **Qwen2.5-VL first**
-- 通用 `AutoModelForCausalLM` 作为兼容回退
-- Qwen3 仅作为名字命中时的附加分支，而不是当前主维护路径
+- 名字命中时优先尝试 `Qwen3VLMoeForConditionalGeneration`
+- 其次尝试 `Qwen2.5-VL`
+- 然后是 `AutoModelForCausalLM`
+- 最后才是 `AutoModel`
 
 ## 当前配置字段
 
@@ -78,7 +80,7 @@
 适用于输入格式、processor 接口或生成方式明显不同的模型。
 
 - 新建一个 engine 类
-- 在 `main.py` 中根据配置决定实例化哪种 engine
+- 在 `build_model_engine()` 这个 backend 选择缝里接入，而不是把 provider 选择逻辑继续堆进 `main.py`
 - 避免把大量分支堆进现有 `ModelEngine`
 
 ## 最小检查清单

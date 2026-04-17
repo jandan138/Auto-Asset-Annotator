@@ -34,7 +34,7 @@ data/
       3.png
 ```
 
-`utils/file.py:list_assets()` 会递归扫描 `input_dir`，把包含图片文件的叶子目录视为一个资产，并返回相对路径，例如 `chair/000123`。
+`utils/file.py:list_assets()` 会递归扫描 `input_dir`，把包含图片文件的目录视为一个资产，并在命中后停止继续向下遍历该分支，返回相对路径，例如 `chair/000123`。
 
 ## 视图文件发现规则
 

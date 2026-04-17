@@ -56,7 +56,7 @@ graph LR
 
 ### 3.3 `core/model.py`
 
-当前实现优先使用 `Qwen2_5_VLForConditionalGeneration`，再回退到 `AutoModelForCausalLM`，仅在模型名包含 `Qwen3` 时尝试 `Qwen3VLMoeForConditionalGeneration` 分支。
+当前实现会在模型名包含 `Qwen3` 时优先尝试 `Qwen3VLMoeForConditionalGeneration`，随后再尝试 `Qwen2_5_VLForConditionalGeneration`、`AutoModelForCausalLM`，最后才是 `AutoModel`。
 
 推理时依赖：
 
@@ -72,7 +72,7 @@ graph LR
 
 ### 3.5 `utils/file.py`
 
-- `list_assets()` 递归查找包含图片的叶子目录
+- `list_assets()` 递归查找包含图片的目录，并在命中后停止继续向下遍历该分支
 - `get_asset_images()` 先尝试命名视角，再回退到全部图片
 
 ## 4. 容错与重试

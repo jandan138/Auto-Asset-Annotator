@@ -17,7 +17,7 @@ python -m auto_asset_annotator.main [OPTIONS]
 | `--output_dir` | Path | 覆盖配置中的输出目录。 |
 | `--model_path` | String | 覆盖配置中的模型路径或模型名。 |
 | `--prompt_type` | String | 覆盖配置中的 prompt 类型。 |
-| `--asset_list_file` | Path | 使用资产列表文件，而不是扫描整个输入目录。 |
+| `--asset_list_file` | Path | 使用资产列表文件，而不是扫描整个输入目录。文件内容应为相对 `--input_dir` 的资产路径，通常是 `category/asset_id`。 |
 | `--force` | Flag | 即使输出文件已存在，也强制重新标注。 |
 | `--retry_incomplete` | Flag | 仅重试 `material`、`dimensions`、`mass`、`placement` 中存在空值的结果。 |
 | `--num_chunks` | Int | 总分块数，用于并行任务切片。 |
@@ -47,6 +47,7 @@ python -m auto_asset_annotator.main \
 
 ```bash
 python -m auto_asset_annotator.main \
+  --input_dir /path/to/assets \
   --asset_list_file archive/temp_lists/failed_assets.txt \
   --output_dir ./output
 ```

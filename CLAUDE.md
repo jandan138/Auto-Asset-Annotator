@@ -55,7 +55,7 @@ python -m auto_asset_annotator.main --input_dir /data/assets --output_dir /data/
 python -m auto_asset_annotator.main --input_dir /data/assets --output_dir /data/results --retry_incomplete
 
 # Use a pre-built asset list file instead of scanning
-python -m auto_asset_annotator.main --asset_list_file archive/temp_lists/failed_assets.txt --output_dir ./output
+python -m auto_asset_annotator.main --input_dir /path/to/assets --asset_list_file archive/temp_lists/failed_assets.txt --output_dir ./output
 
 # Distributed chunking (e.g., 4-machine parallel)
 python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 0  # machine 1
@@ -64,9 +64,9 @@ python -m auto_asset_annotator.main --num_chunks 4 --chunk_index 1  # machine 2
 
 ### Run tests
 ```bash
-python -m pytest test_parser_robustness.py -v
+python -m pytest tests/test_parser_robustness.py -v
 # Or directly:
-python test_parser_robustness.py
+python tests/test_parser_robustness.py
 ```
 
 ### Utility scripts
@@ -208,7 +208,7 @@ input_dir/
       right.png (or 3.png)
 ```
 
-`list_assets()` walks `input_dir` and returns relative paths of all leaf directories containing images.
+`list_assets()` walks `input_dir` recursively, records any directory that contains images as an asset, and stops descending further into that matched branch.
 
 ## Configuration (`config/config.yaml`)
 
@@ -216,11 +216,11 @@ Key fields to know:
 - `model.backend`: `"local_hf"` for on-box inference or `"openai_compatible"` for remote Chat Completions
 - `model.name`: local model path for `local_hf`, or remote model name such as `gemini-2.5-flash-image` for `openai_compatible`
 - `model.api_base_url` / `model.api_key_env`: required for `openai_compatible`
-- `model.attn_implementation`: `"eager"` (current, avoids flash-attn dependency) or `"flash_attention_2"` (faster) for `local_hf` only
-- `model.max_new_tokens`: `2048` (current)
+- `model.attn_implementation`: the checked-in `config/config.yaml` currently uses `"eager"` (avoids flash-attn dependency); `settings.py` still keeps `"flash_attention_2"` as the code-level fallback for `local_hf`
+- `model.max_new_tokens`: the checked-in `config/config.yaml` currently uses `2048`; `settings.py` still keeps `512` as the code-level fallback
 - `prompts.default_type`: `"extract_object_attributes_prompt"` (current default)
 - `data.views`: maps logical view names to ordered lists of candidate filenames to try
-- `data.asset_list_file`: optional path to a text file containing asset IDs to process (one per line)
+- `--asset_list_file`: supported as a CLI override, not as a declared `data` config field. The file should contain one relative asset path per line, typically `category/asset_id`.
 
 ## Adding a New Prompt Type
 

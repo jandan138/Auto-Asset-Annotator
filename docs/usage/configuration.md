@@ -107,17 +107,17 @@ API 请求最大重试次数。当前实现会对部分瞬时 HTTP/网络错误�
 
 ### `model.attn_implementation`
 
-本地模型注意力实现方式。当前配置为 `"eager"`，配置文件中也保留了 `flash_attention_2` 的注释示例。
+本地模型注意力实现方式。checked-in `config/config.yaml` 当前使用 `"eager"`；代码级 dataclass fallback 仍然是 `"flash_attention_2"`。
 
 当 `model.backend` 为 `openai_compatible` 时，这个字段会被忽略。
 
 ### `model.temperature`
 
-生成温度。无论本地还是 API 后端，都会透传到对应的生成请求中。
+生成温度。checked-in `config/config.yaml` 当前使用 `0.1`；代码级 dataclass fallback 仍然是 `0.8`。无论本地还是 API 后端，都会透传到对应的生成请求中。
 
 ### `model.max_new_tokens`
 
-单次生成的最大 token 数。API 后端会将它映射为 `max_tokens`。
+单次生成的最大 token 数。checked-in `config/config.yaml` 当前使用 `2048`；代码级 dataclass fallback 仍然是 `512`。API 后端会将它映射为 `max_tokens`。
 
 ### API 后端补充说明
 

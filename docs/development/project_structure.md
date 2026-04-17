@@ -62,13 +62,13 @@ src/auto_asset_annotator/
 
 ### `utils/file.py`
 
-- `list_assets()` 递归寻找包含图片的叶子目录，并返回相对路径
+- `list_assets()` 递归寻找包含图片的目录，命中后就停止继续向下遍历该分支，并返回相对路径
 - `get_asset_images()` 支持命名视角、缩略图目录和回退扫描模式
 
 ## 当前运行链路
 
 `CLI -> Config -> build_model_engine() -> backend inference -> AnnotationPipeline -> parsed JSON output`
 
-这条链路是当前代码的真实实现：模型返回的是文本，属性提取类任务由流水线解析后再写成 JSON，而不是直接信任模型原样返回 JSON。
+这条链路是当前代码的真实实现：模型返回的是文本，属性提取类任务由流水线解析后再写成 JSON，而不是直接信任模型原样返回 JSON。`main.py` 实际按 `{output_dir}/{asset_name}_annotation.json` 写文件；在常见的 `category/asset_id` 目录结构下，这等价于 `{output_dir}/{category}/{asset_id}_annotation.json`。
 
 API 后端没有改动 `AnnotationPipeline` 的消息和解析逻辑，只是在 backend seam 上把本地图像路径转成 data URL 并转发到远程接口。`device_map`、`dtype`、`attn_implementation` 仍属于本地推理配置，API 路径会忽略它们。

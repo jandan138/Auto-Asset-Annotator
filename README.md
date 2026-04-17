@@ -52,7 +52,7 @@ python -m auto_asset_annotator.main \
 
 ```bash
 python -m auto_asset_annotator.main --prompt_type classify_object_category_prompt --input_dir /path/to/assets --output_dir /path/to/results
-python -m auto_asset_annotator.main --asset_list_file archive/temp_lists/failed_assets.txt --output_dir ./output
+python -m auto_asset_annotator.main --input_dir /path/to/assets --asset_list_file archive/temp_lists/failed_assets.txt --output_dir ./output
 python -m auto_asset_annotator.main --input_dir /path/to/assets --output_dir /path/to/results --retry_incomplete
 ```
 

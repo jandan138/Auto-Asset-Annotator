@@ -7,7 +7,7 @@
 当前代码中的主流程是：`CLI -> Config -> ModelEngine -> AnnotationPipeline -> parsed JSON output`
 
 1. `src/auto_asset_annotator/main.py` 解析 CLI 参数并加载 `config/config.yaml`。
-2. `ModelEngine` 根据配置加载 Qwen2.5-VL 模型并执行推理。
+2. `build_model_engine()` 根据配置选择本地 `local_hf` 或远程 `openai_compatible` 后端并执行推理。
 3. `AnnotationPipeline` 发现资产图片、构造 prompt、调用模型、解析返回结果。
 4. `main.py` 将最终结果保存为 `{output_dir}/{category}/{asset_id}_annotation.json`。
 
@@ -29,7 +29,7 @@
 
 - 批量扫描输入目录中的资产子目录。
 - 按 `data.views` 解析 `front.png` / `0.png` 这类多视图文件名。
-- 支持属性提取、分类、描述、正视图选择、对称性判断等多种 prompt 类型。
+- 主维护路径支持属性提取、分类、描述等常用 prompt 类型；仓库中也保留了正视图选择、对称性判断和少量特殊 prompt 注册项，但它们的端到端维护程度不完全相同。
 - 支持断点续跑、失败重试、空物理属性重试和分块并行处理。
 - 输出稳定的 JSON 文件，便于后续检索、统计或数据回填。
 

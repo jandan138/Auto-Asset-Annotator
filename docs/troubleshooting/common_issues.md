@@ -23,9 +23,9 @@
 
 **排查顺序**：
 
-1. 检查输入目录是否真的是“资产叶子目录包含图片”的结构
+1. 检查输入目录是否真的是“资产目录包含图片，且命中后停止继续向下遍历该分支”的结构
 2. 检查 `config/config.yaml` 里的 `data.views` 是否和实际文件名一致
-3. 如果你启用了 `use_thumbnails_dir: true`，确认 `thumbnails/` 目录确实存在
+3. 如果你启用了 `use_thumbnails_dir: true`，优先确认 `thumbnails/` 目录是否存在；即使不存在，当前代码也会回退到资产根目录继续查找
 4. 记住：如果命名视角一个都没找到，代码会回退到目录中的全部 `.png/.jpg/.jpeg`
 
 ### 3. 输出里出现 `raw_output`
@@ -73,6 +73,7 @@ python -m auto_asset_annotator.main \
 
 ```bash
 python -m auto_asset_annotator.main \
+    --input_dir /path/to/assets \
     --asset_list_file archive/temp_lists/failed_assets.txt \
     --output_dir ./output \
     --force
