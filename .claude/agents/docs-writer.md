@@ -25,9 +25,10 @@ You are a technical documentation specialist for the **Auto-Asset-Annotator** pr
 | Project guidance for Claude | `CLAUDE.md` |
 | Project overview | `README.md` |
 | Detailed usage docs | `docs/` directory |
-| Prompt documentation | In-code docstrings + CLAUDE.md |
-| CLI reference | `CLAUDE.md` Commands section |
-| Architecture decisions | `docs/architecture/` (if created) |
+| Prompt/backend documentation | In-code docstrings + `docs/usage/` + `CLAUDE.md` |
+| CLI reference | `docs/usage/cli_reference.md` |
+| DLC operator workflow | `docs/dlc/README.md` |
+| Architecture / design decisions | `docs/superpowers/specs/` or dedicated docs under `docs/` |
 
 ### 4. Write with Consistency
 - **Language**: English for technical docs

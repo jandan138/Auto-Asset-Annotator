@@ -11,8 +11,8 @@
 | `src/auto_asset_annotator/config/` | feature-implementer, code-refactorer | 配置系统：settings、YAML 加载 |
 | `src/auto_asset_annotator/utils/` | feature-implementer, bug-fixer | 工具函数：file、image |
 | `src/auto_asset_annotator/main.py` | feature-implementer, code-refactorer | CLI 入口；高冲突风险 |
-| `scripts/` | feature-implementer | 独立工具脚本 |
-| `test_parser_robustness.py` | test-writer, bug-fixer | 解析器测试 |
+| `scripts/` | feature-implementer | 独立工具脚本，包括 DLC wrapper/runtime 层 |
+| `tests/` | test-writer, bug-fixer | 解析器、backend、DLC 脚本测试 |
 
 ## 文档归属
 

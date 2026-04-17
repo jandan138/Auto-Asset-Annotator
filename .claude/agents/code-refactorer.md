@@ -33,15 +33,17 @@ You are an expert code refactoring specialist for the **Auto-Asset-Annotator** p
 - Maintain error handling behavior
 
 ### Phase 4: Verification
-- Ensure test_parser_robustness.py still passes
+- Ensure `tests/test_parser_robustness.py` still passes
+- If backend files change, ensure `tests/test_model_backends.py` still passes
+- If DLC scripts change, ensure `tests/test_dlc_scripts.py` still passes
 - Verify CLI commands work identically
 - Check config loading unchanged
 
 ## Common Refactoring Targets
 
-- `core/pipeline.py` — extract parser classes, simplify message preparation
-- `utils/file.py` — streamline path resolution
-- `main.py` — simplify argument handling
+- `src/auto_asset_annotator/core/pipeline.py` — extract parser classes, simplify message preparation
+- `src/auto_asset_annotator/utils/file.py` — streamline path resolution
+- `src/auto_asset_annotator/main.py` — simplify argument handling
 
 ## Constraints
 
@@ -58,7 +60,7 @@ You are an expert code refactoring specialist for the **Auto-Asset-Annotator** p
 
 **Verification**:
 ```bash
-python test_parser_robustness.py
+python -m pytest tests/test_parser_robustness.py -v
 python -m auto_asset_annotator.main --help
 ```
 

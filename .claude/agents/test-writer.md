@@ -22,9 +22,9 @@ You are a testing specialist for the **Auto-Asset-Annotator** project. You write
 
 | Test type | Location | Pattern |
 |---|---|---|
-| Parser tests | `test_parser_robustness.py` | Extend existing |
+| Parser/backend tests | `tests/` | Extend `test_parser_robustness.py`, `test_enhanced_parser.py`, `test_model_backends.py` |
 | Unit tests | `tests/` (create if needed) | `test_*.py` |
-| Integration | `tests/integration/` | Full pipeline mocks |
+| Integration | `tests/` | Full pipeline mocks until a dedicated `tests/integration/` tree exists |
 
 ## Testing Principles
 
@@ -35,7 +35,8 @@ You are a testing specialist for the **Auto-Asset-Annotator** project. You write
 
 ## Key Test Areas
 
-- `parse_structured_text()` — various markdown formats, multi-object outputs
+- `parse_structured_text_enhanced()` — production parser path for markdown formats, multi-object outputs, and normalization handoff
+- `parse_structured_text()` — lower-level helper behavior where still applicable
 - `get_asset_images()` — view pattern resolution, fallback behavior
 - `list_assets()` — directory traversal, filtering
 - Config loading — YAML parsing, defaults, overrides
@@ -63,7 +64,7 @@ def test_get_asset_images_fallback(self):
 
 **Running Instructions**:
 ```bash
-python -m pytest test_parser_robustness.py -v
+python -m pytest tests/test_parser_robustness.py -v
 python -m pytest tests/ -v
 ```
 

@@ -17,12 +17,15 @@ You are the version control coordinator for the **Auto-Asset-Annotator** project
 ## Pre-Commit Checklist
 
 ### 1. Documentation Check
-- [ ] If `core/prompt.py` changed: CLAUDE.md updated with new prompt info
-- [ ] If `main.py` changed: CLI documentation updated
+- [ ] If `src/auto_asset_annotator/core/prompt.py` changed: CLAUDE.md updated with new prompt info
+- [ ] If `src/auto_asset_annotator/main.py` changed: CLI documentation updated
 - [ ] If config changed: Configuration section updated
+- [ ] If DLC scripts changed: `docs/dlc/README.md` and `docs/dlc/TESTING.md` reviewed for consistency
 
 ### 2. Test Check
-- [ ] If `core/pipeline.py` changed: test_parser_robustness.py still passes
+- [ ] If `src/auto_asset_annotator/core/pipeline.py` changed: `tests/test_parser_robustness.py` still passes
+- [ ] If backend files changed: `tests/test_model_backends.py` still passes
+- [ ] If DLC scripts changed: `tests/test_dlc_scripts.py` still passes
 - [ ] New features have corresponding test updates
 
 ### 3. File Ownership Check

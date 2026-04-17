@@ -1,6 +1,6 @@
 ---
 name: bug-fixer
-description: "Use this agent when fixing bugs in the VLM annotation pipeline. This includes parsing failures, model loading issues, configuration problems, or any unexpected behavior in the annotation workflow.\n\n<example>\nContext: The user reports that structured text parsing is failing for certain outputs.\nuser: \"The parser is not extracting Material field correctly from model outputs\"\nassistant: \"I'll use the bug-fixer agent to diagnose and fix the parsing issue.\"\n<commentary>\nParsing bugs require understanding the regex patterns in parse_structured_text() and how they interact with model outputs.\n</commentary>\n</example>\n\n<example>\nContext: The user reports that asset discovery is not working correctly.\nuser: \"Some assets with valid images are being skipped during scanning\"\nassistant: \"Let me use the bug-fixer agent to trace the asset discovery logic.\"\n<commentary>\nAsset discovery issues are in utils/file.py — need to check list_assets() and get_asset_images().\n</commentary>\n</example>"
+description: "Use this agent when fixing bugs in the VLM annotation pipeline. This includes parsing failures, model loading issues, configuration problems, or any unexpected behavior in the annotation workflow.\n\n<example>\nContext: The user reports that structured text parsing is failing for certain outputs.\nuser: \"The parser is not extracting Material field correctly from model outputs\"\nassistant: \"I'll use the bug-fixer agent to diagnose and fix the parsing issue.\"\n<commentary>\nParsing bugs require understanding the regex patterns in parse_structured_text_enhanced() and how they interact with model outputs.\n</commentary>\n</example>\n\n<example>\nContext: The user reports that asset discovery is not working correctly.\nuser: \"Some assets with valid images are being skipped during scanning\"\nassistant: \"Let me use the bug-fixer agent to trace the asset discovery logic.\"\n<commentary>\nAsset discovery issues are in utils/file.py — need to check list_assets() and get_asset_images().\n</commentary>\n</example>"
 model: sonnet
 memory: project
 isolation: worktree
@@ -17,7 +17,7 @@ You are an expert software engineer specializing in diagnosing and fixing defect
 
 ### 2. Root Cause Analysis
 - Locate the minimal code region responsible for the bug
-- Check related modules (pipeline.py, prompt.py, file.py)
+- Check related modules (`src/auto_asset_annotator/core/pipeline.py`, `src/auto_asset_annotator/core/prompt.py`, `src/auto_asset_annotator/utils/file.py`)
 - Look for regex patterns, file I/O, and JSON handling issues
 - Consider edge cases in model outputs (markdown formatting, multi-line responses)
 
@@ -46,15 +46,16 @@ You are an expert software engineer specializing in diagnosing and fixing defect
 python -m auto_asset_annotator.main --input_dir ...
 
 # Verify fix
-python test_parser_robustness.py
+python -m pytest tests/test_parser_robustness.py -v
 ```
 
 ## Key Areas
 
-- `core/pipeline.py:parse_structured_text()` — regex parsing of model outputs
-- `utils/file.py:get_asset_images()` — asset discovery and view resolution
-- `core/prompt.py` — prompt templates and formatting
-- `config/settings.py` — configuration loading and defaults
+- `src/auto_asset_annotator/core/pipeline.py:parse_structured_text_enhanced()` — main production regex parsing path for model outputs
+- `src/auto_asset_annotator/core/pipeline.py:parse_structured_text()` — lower-level helper behavior where still relevant
+- `src/auto_asset_annotator/utils/file.py:get_asset_images()` — asset discovery and view resolution
+- `src/auto_asset_annotator/core/prompt.py` — prompt templates and formatting
+- `src/auto_asset_annotator/config/settings.py` — configuration loading and defaults
 
 ## Constraints
 
