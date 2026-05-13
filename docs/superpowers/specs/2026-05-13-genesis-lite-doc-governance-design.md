@@ -98,7 +98,9 @@ The target shape follows a "Genesis-lite" pattern:
 This design intentionally creates the new governance directories before moving old content into them.
 `docs/changes/` remains valid as the historical record store for now. `docs/records/README.md` explains that
 new dated records should use `docs/records/`, while older records remain under `docs/changes/` until a
-separate migration pass.
+separate migration pass. The implementation must also update the existing `CLAUDE.md` agent documentation rule,
+which currently points agents at `docs/changes/YYYY-MM-DD_<topic>.md`, so the new policy is not contradicted by
+an older mandatory rule.
 
 ## File Responsibilities
 
@@ -135,6 +137,8 @@ Canonical docs index. It should answer:
 
 Validated project-state lock. It should pin:
 
+- validation status label and validation dates
+- config source used for each pinned fact
 - default runtime chain
 - default local model path from checked-in config
 - supported backends
@@ -142,6 +146,7 @@ Validated project-state lock. It should pin:
 - output status and field completeness
 - DLC profile/quota facts that are already documented
 - validation evidence links
+- explicit boundaries for what is observed, validated, or not validated
 - verification checklist for future updates
 
 This file should not contain secrets and should not include API keys.
@@ -150,6 +155,8 @@ This file should not contain secrets and should not include API keys.
 
 Archive policy for historical lists and deprecated artifacts. It should state that archive content is for
 reference and should not be treated as current operation input unless a maintained runbook explicitly says so.
+`archive/temp_lists/` needs an explicit exception: it is legacy storage, but paths under it remain supported
+operational inputs when referenced by maintained scripts or runbooks.
 
 ### `docs/design/README.md`
 
@@ -200,7 +207,8 @@ Claims about validated state should link to evidence files:
 
 Docs must continue to warn that annotation commands can load large VLM weights and that API backend runs can
 consume remote quota. No new documentation should encourage live model, API, or DLC execution without explicit
-operator intent.
+operator intent. This applies to new files and to touched entrypoints such as `README.md` and `docs/dlc/README.md`:
+direct annotation examples are operational commands, not smoke tests.
 
 ### No Broad Churn
 
@@ -226,6 +234,9 @@ Use documentation-focused verification:
 - `git diff --check`
 - grep checks for new links and canonical entrypoints
 - file existence checks for every linked document
+- a relative Markdown link checker for touched Markdown files
+- explicit checks that `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/index.md`, and
+  `ANNOTATOR_RUNTIME_LOCK.md` link to each other where required
 - targeted pytest only if an available environment has both `torch` and `pytest`
 
 Baseline note for this worktree:
