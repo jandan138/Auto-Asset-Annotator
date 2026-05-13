@@ -11,7 +11,7 @@ Last updated: 2026-05-13
 - Configuration: `usage/configuration.md`
 - DLC runbook: `dlc/README.md`
 - Troubleshooting: `troubleshooting/common_issues.md`
-- Historical records: `changes/`
+- Historical records: `docs/changes/`
 - Superpowers specs and plans: `superpowers/`
 
 ## Project Overview
@@ -35,7 +35,7 @@ CLI -> Config -> ModelEngine -> AnnotationPipeline -> parsed JSON output
 - `operations/` - maintained runbook index.
 - `records/` - new dated execution records.
 - `reference/` - stable reference index.
-- `changes/` - historical March and April 2026 records retained at original paths.
+- `docs/changes/` - historical March and April 2026 records retained at original paths.
 - `superpowers/` - agent design specs and implementation plans.
 
 ## Writing Policy
