@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Shared Agent Rules
+
+Read `AGENTS.md` for repository-wide agent rules, safety constraints, documentation requirements, and directory quick reference. Use `docs/index.md` for the maintained documentation map and `ANNOTATOR_RUNTIME_LOCK.md` for validated runtime-state boundaries. This file keeps Claude Code specific commands, architecture notes, and operational details.
+
 ## Important Constraints
 
 **Do not run annotation commands** (commands that load and run the VLM) unless explicitly told to do so. The model is large (Qwen2.5-VL-7B-Instruct) and loading it is expensive.
@@ -256,37 +260,6 @@ The annotation pipeline is stable and all output files in `/cpfs/shared/simulati
 
 ---
 
-## Agent Team Documentation Rule (Mandatory)
+## Agent Team Documentation Rule
 
-**Every agent in a team MUST produce documentation for its work.** This is a hard requirement, not optional.
-
-### What to document
-
-Each agent must record the full lifecycle of its task:
-
-1. **Research / Investigation** — what was explored, which files were read, what was discovered
-2. **Design decisions** — why a particular approach was chosen, alternatives considered
-3. **Code changes** — what was modified, added, or deleted, with file paths and brief rationale
-4. **Testing** — what was tested, how it was tested, test commands run, and results
-5. **Open issues** — known limitations, follow-up work needed, edge cases not covered
-
-### Where to write
-
-- Place docs under `docs/changes/YYYY-MM-DD_<topic>.md` for change logs
-- Update `CLAUDE.md` if adding new commands or architectural changes
-- Update relevant sections in existing docs
-
-### How: agents with write permission
-
-If the agent has file-write capability (Edit/Write tools), it **must write the documentation itself** before marking its task as completed.
-
-### How: agents without write permission
-
-If the agent is read-only (e.g., Explore, Plan agents), it **must send a message to the docs-writer agent** with:
-- A structured summary of findings, decisions, and results
-- Suggested file path and title for the documentation
-
-### Enforcement
-
-- Team leads must verify documentation exists before accepting a task as completed
-- The version-commit-agent should check for corresponding documentation changes when committing code changes
+Repository-wide agent documentation requirements live in `AGENTS.md`. In short: every behavior, command, runtime assumption, or operational status change must update the relevant maintained docs or a dated record under `docs/records/YYYY-MM-DD-topic.md` before the task is treated as complete. Historical records under `docs/changes/` remain at their existing paths.

@@ -12,6 +12,8 @@
 
 ## Quick Start
 
+These commands are operational examples. The default annotation command can load the local VLM. API-backed examples can consume remote quota. Use them only when you intentionally want to run annotation.
+
 ```bash
 pip install -r requirements.txt
 pip install -e .
@@ -70,6 +72,9 @@ python -m auto_asset_annotator.main --input_dir /path/to/assets --output_dir /pa
 
 ## Documentation
 
+- 文档总览: `docs/index.md`
+- Agent 协作规则: `AGENTS.md`
+- 运行状态锁: `ANNOTATOR_RUNTIME_LOCK.md`
 - 项目概览: `docs/introduction/overview.md`
 - 安装部署: `docs/installation/linux_deployment.md`
 - 快速开始: `docs/usage/quick_start.md`

@@ -110,7 +110,7 @@ MODEL_BACKEND=local_hf MODEL_PATH=/path/to/local/model \
 bash scripts/dlc/submit_probe.sh --dry-run
 ```
 
-The real submission path is the same command without `--dry-run`.
+Real submission is a quota-consuming operation. After a reviewed dry-run, use the same command without `--dry-run` only when the operator explicitly intends to create the tiny DLC job.
 
 ## Monitoring And Logs
 
