@@ -110,7 +110,8 @@ For large-scale distributed annotation on Alibaba Cloud PAI-DLC:
 # Preferred operator entrypoint: wrapper script around submit_batch.py
 bash scripts/dlc/submit_annotate.sh --dry-run
 
-# Tiny probe path (run with --dry-run first, remove it only for a minimal real probe)
+# Tiny probe path: create or verify the small asset list first, then run with --dry-run.
+printf 'category/asset_id\n' > archive/temp_lists/probe_assets.txt
 MODEL_BACKEND=openai_compatible ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt bash scripts/dlc/submit_probe.sh --dry-run
 
 # Retry failed assets

@@ -93,6 +93,13 @@ The probe wrapper keeps `TOTAL=1` by default, but more importantly it requires a
 
 It also requires an explicit `MODEL_BACKEND`, so the probe cannot silently fall back to the repository's checked-in default backend.
 
+Before running the examples, create or verify the small asset list. The file must contain one real relative asset path per line:
+
+```bash
+printf 'category/asset_id\n' > archive/temp_lists/probe_assets.txt
+test -s archive/temp_lists/probe_assets.txt
+```
+
 Examples:
 
 ```bash
