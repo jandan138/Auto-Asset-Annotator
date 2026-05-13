@@ -19,7 +19,7 @@ The current project records 52,907 annotated assets with complete `description`,
 5. Keep `config/config.yaml` as the checked-in default configuration; use CLI flags or environment variables for run-specific overrides.
 6. Treat model output as structured text that is parsed into JSON by the pipeline, not as trusted direct JSON.
 7. New work must update the relevant docs when behavior, commands, runtime assumptions, or operational status changes.
-8. New dated execution records go under `docs/records/YYYY-MM-DD-topic.md`; older records remain under `docs/changes/`.
+8. New dated execution records go under `docs/records/` using the filename pattern YYYY-MM-DD-topic.md; older records remain under `docs/changes/`.
 
 ## Documentation Entrypoints
 

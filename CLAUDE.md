@@ -262,4 +262,4 @@ The annotation pipeline is stable and all output files in `/cpfs/shared/simulati
 
 ## Agent Team Documentation Rule
 
-Repository-wide agent documentation requirements live in `AGENTS.md`. In short: every behavior, command, runtime assumption, or operational status change must update the relevant maintained docs or a dated record under `docs/records/YYYY-MM-DD-topic.md` before the task is treated as complete. Historical records under `docs/changes/` remain at their existing paths.
+Repository-wide agent documentation requirements live in `AGENTS.md`. In short: every behavior, command, runtime assumption, or operational status change must update the relevant maintained docs or a dated record under `docs/records/` using the filename pattern YYYY-MM-DD-topic.md before the task is treated as complete. Historical records under `docs/changes/` remain at their existing paths.
