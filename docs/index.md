@@ -24,7 +24,7 @@ CLI -> Config -> ModelEngine -> AnnotationPipeline -> parsed JSON output
 
 ## Current Status
 
-- 52,907 assets have complete structured annotations.
+- Historical records report 52,907 assets with complete structured annotations; this documentation pass did not re-count the output set.
 - `output/` is the stable structured result set.
 - The default prompt is `extract_object_attributes_prompt`.
 - The model returns structured text for extraction prompts; the pipeline parses it into JSON.

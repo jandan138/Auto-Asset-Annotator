@@ -8,7 +8,7 @@ Auto-Asset-Annotator is a Qwen2.5-VL based 3D asset annotation pipeline. The mai
 CLI -> Config -> ModelEngine -> AnnotationPipeline -> parsed JSON output
 ```
 
-The current project records 52,907 annotated assets with complete `description`, `material`, `dimensions`, `mass`, and `placement` fields. Treat `output/` as the stable structured result set unless a task explicitly says otherwise.
+Historical records currently report 52,907 annotated assets with complete `description`, `material`, `dimensions`, `mass`, and `placement` fields. This documentation pass did not re-count the output set; see `ANNOTATOR_RUNTIME_LOCK.md` for validation boundaries. Treat `output/` as the stable structured result set unless a task explicitly says otherwise.
 
 ## Key Rules
 
