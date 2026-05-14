@@ -33,6 +33,8 @@
 - 支持断点续跑、失败重试、空物理属性重试和分块并行处理。
 - 输出稳定的 JSON 文件，便于后续检索、统计或数据回填。
 
+输出格式的详细约定见 `docs/usage/output_schema.md`。Gemma4 本地多模态 smoke 的环境、命令和真实输出样例见 `docs/usage/gemma4_local_smoke.md`。
+
 ## 模块分工
 
 - `main.py`: CLI、配置覆盖、资产列表加载、输出写盘。

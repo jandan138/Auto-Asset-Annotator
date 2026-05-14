@@ -86,6 +86,7 @@ The initial red run failed on the new DLC tests because `submit_probe.sh` reject
 
 - Live single-asset Gemma4 base smoke was run after the initial implementation using `/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python`.
 - The checked `.venv_dlc` runtime has `transformers 5.2.0` and is not sufficient for Gemma4 multimodal input: processor-only smoke loaded a tokenizer-style processor and produced no image tensor keys.
+- DLC `run_task.sh` can use a worker-side `DLC_PYTHON_RUNTIME`, but the current submit wrappers do not embed that variable into the submitted worker command. Gemma4 real DLC submission remains blocked until the worker log proves it is using a Gemma4-capable Python runtime.
 - The Genesis-LLM QLoRA environment has `transformers 5.8.0.dev0`, `Gemma4ForConditionalGeneration`, Torch `2.10.0+cu128`, bitsandbytes, and Unsloth. Local precheck on this node reported `torch.cuda.is_available() == True`; the Genesis-LLM Gate0 QLoRA run record itself should still be treated as dependency/plumbing evidence, not full CUDA capability evidence.
 - Processor-only smoke on the real GRScenes asset produced `Gemma4Processor` inputs with `pixel_values` and `image_position_ids`.
 - A normal Gemma4 CLI run without Unsloth patch failed in the vision branch with bitsandbytes `FP4 quantization state not initialized` / `AssertionError` inside the Gemma4 vision tower.
@@ -97,3 +98,11 @@ The initial red run failed on the new DLC tests because `submit_probe.sh` reject
 - A processor-only smoke can be run without model weights loaded by setting `RUN_GEMMA4_PROCESSOR_SMOKE=1` and optionally `GEMMA4_MODEL_PATH=<path>` for `tests/test_model_backends.py::TestGemma4MultimodalEngine::test_gemma4_processor_smoke_includes_image_tensors`.
 - Production jobs should pin the immutable release path, not `current`.
 - The Genesis adapter should only be evaluated after Gemma4 base passes the live smoke probe.
+
+## Documentation Follow-up
+
+After the live smoke, the docs were expanded so the operational path is not buried in the change record:
+
+- `docs/usage/gemma4_local_smoke.md`: canonical local Gemma4 smoke runbook with environment choice, model paths, output isolation, processor-only smoke, real CLI smoke, Unsloth patch rationale, failure modes, and production gates.
+- `docs/usage/output_schema.md`: canonical output schema reference explaining Auto-Asset JSON style, failure `raw_output`, and why it must not be directly overwritten onto GRScenes original metadata.
+- `README.md`, `docs/usage/quick_start.md`, `docs/usage/configuration.md`, `docs/usage/cli_reference.md`, `docs/usage/data_preparation.md`, `docs/introduction/overview.md`, `docs/development/extending_models.md`, `docs/dlc/README.md`, `docs/dlc/TESTING.md`, and `docs/troubleshooting/common_issues.md` now link or summarize the Gemma4 smoke and schema constraints.

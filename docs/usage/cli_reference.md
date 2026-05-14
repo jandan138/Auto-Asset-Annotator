@@ -52,6 +52,34 @@ python -m auto_asset_annotator.main \
   --output_dir ./output
 ```
 
+资产列表文件中的路径必须相对 `--input_dir`，通常是 `category/asset_id`。输出 JSON 顶层 key 会使用同一条相对路径。输出 schema 详见 `docs/usage/output_schema.md`。
+
+### Gemma4 本地多模态 smoke
+
+```bash
+RUN_ROOT=/cpfs/user/zhuzihou/tmp/auto_asset_annotator_smoke/$(date -u +%Y%m%dT%H%M%SZ)_grscenes_basket_6c68230d_gemma4
+DATA_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+MODEL_PATH=/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8
+mkdir -p "$RUN_ROOT/input" "$RUN_ROOT/output" "$RUN_ROOT/logs" "$RUN_ROOT/cache"
+printf '%s\n' 'basket/6c68230d67112b1dfd2bd7fa9322c756' > "$RUN_ROOT/input/asset_list.txt"
+
+HF_HUB_OFFLINE=1 \
+TRANSFORMERS_OFFLINE=1 \
+TOKENIZERS_PARALLELISM=false \
+UNSLOTH_COMPILE_LOCATION="$RUN_ROOT/cache/unsloth_compiled_cache" \
+PYTHONPATH=src \
+/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python \
+  -m auto_asset_annotator.main \
+  --model_backend local_gemma4_multimodal \
+  --model_path "$MODEL_PATH" \
+  --asset_list_file "$RUN_ROOT/input/asset_list.txt" \
+  --input_dir "$DATA_ROOT" \
+  --output_dir "$RUN_ROOT/output" \
+  --force
+```
+
+Gemma4 会加载本地大模型。完整环境预检、processor-only smoke、真实单资产 smoke、Unsloth cache 规范和失败排查见 `docs/usage/gemma4_local_smoke.md`。
+
 ### 强制重跑
 
 ```bash

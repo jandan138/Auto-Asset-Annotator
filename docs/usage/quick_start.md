@@ -66,15 +66,26 @@ python -m auto_asset_annotator.main \
 如果要做 Gemma4 本地多模态 probe，显式指定独立 backend 和固定 release 路径：
 
 ```bash
-python -m auto_asset_annotator.main \
+RUN_ROOT=/cpfs/user/zhuzihou/tmp/auto_asset_annotator_smoke/$(date -u +%Y%m%dT%H%M%SZ)_grscenes_basket_6c68230d_gemma4
+DATA_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+mkdir -p "$RUN_ROOT/input" "$RUN_ROOT/output" "$RUN_ROOT/logs" "$RUN_ROOT/cache"
+printf '%s\n' 'basket/6c68230d67112b1dfd2bd7fa9322c756' > "$RUN_ROOT/input/asset_list.txt"
+
+HF_HUB_OFFLINE=1 \
+TRANSFORMERS_OFFLINE=1 \
+TOKENIZERS_PARALLELISM=false \
+UNSLOTH_COMPILE_LOCATION="$RUN_ROOT/cache/unsloth_compiled_cache" \
+PYTHONPATH=src \
+/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python \
+  -m auto_asset_annotator.main \
   --model_backend local_gemma4_multimodal \
   --model_path /cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8 \
-  --asset_list_file archive/temp_lists/probe_assets.txt \
-  --input_dir ./test_data \
-  --output_dir ./test_output
+  --asset_list_file "$RUN_ROOT/input/asset_list.txt" \
+  --input_dir "$DATA_ROOT" \
+  --output_dir "$RUN_ROOT/output"
 ```
 
-这条命令会加载大模型，只有明确做 live smoke/probe 时才运行。
+这条命令会加载大模型，只有明确做 live smoke/probe 时才运行。已验证的 Gemma4 smoke runtime 是 `/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python`；仓库 `.venv_dlc` 中的 Transformers 版本不足以完成 Gemma4 多模态图片输入。完整命令、隔离输出目录、Unsloth cache 规范和真实输出示例见 `docs/usage/gemma4_local_smoke.md`。
 
 ## 3. 查看输出
 
@@ -110,3 +121,5 @@ test_output/
 ```
 
 如果解析失败，结果会保存 `raw_output`，后续可继续重试。
+
+输出 JSON 的风格与仓库现有 `./output/...` 标注结果一致，但不等于 GRScenes 原始资产 metadata schema。字段类型、顶层 key 和回填建议见 `docs/usage/output_schema.md`。

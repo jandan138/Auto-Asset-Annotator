@@ -81,6 +81,8 @@ output/
 
 JSON 内部的顶层键仍然使用资产相对路径，例如 `chair/000123`。
 
+完整输出 schema、字段类型、失败输出 `raw_output`、以及与 GRScenes 原始 metadata 的差异见 `docs/usage/output_schema.md`。
+
 ## 文件格式说明
 
 - 当前代码识别的图片扩展名为 `.png`、`.jpg`、`.jpeg`。

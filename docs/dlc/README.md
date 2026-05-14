@@ -29,13 +29,16 @@ Direct `run_task.sh` named modes (`annotate`, `classify`, `extract`, `custom`) s
 
 - Confirm the DLC CLI is available: `./dlc get jobs`
 - Confirm the repository path mounted in DLC matches `DLC_CODE_ROOT`
-- Confirm `.venv_dlc` or `.venv` exists under `DLC_CODE_ROOT`
+- Confirm `.venv_dlc` or `.venv` exists under `DLC_CODE_ROOT` for normal `local_hf` / API runs
 - Confirm `INPUT_DIR` and `OUTPUT_DIR` point to DLC-accessible paths if you override them
 - Confirm the selected backend is intentional:
   `local_hf`: local model path or config-backed model must exist in the worker image
   `local_gemma4_multimodal`: `MODEL_PATH` is required, must point to a DLC-visible Gemma4 release path, and dry-run output must show both `--model_backend local_gemma4_multimodal` and `--model_path ...`
   `openai_compatible`: both `--api_base_url` and `--api_key_env` must resolve, and the named key must be non-empty in the runtime environment
 - Run a dry-run wrapper command before real submission
+- For Gemma4, confirm the worker runtime is equivalent to the Genesis-LLM QLoRA env: Transformers must expose Gemma4 multimodal classes and Unsloth must be available for 4-bit checkpoints. A runtime with `transformers 5.2.0` is not enough even if it can import `AutoProcessor`.
+- Gemma4 DLC status: `scripts/dlc/run_task.sh` can select a different worker runtime through the worker-side `DLC_PYTHON_RUNTIME` environment variable, but the current submit wrappers do not embed that variable into the submitted DLC command. Treat Gemma4 DLC submission as not operationally wired until a dry-run/worker log proves the DLC worker is actually using the Genesis-LLM QLoRA Python.
+- For Gemma4, set `UNSLOTH_COMPILE_LOCATION` to a job-local output/cache path if possible, so Unsloth does not write `unsloth_compiled_cache/` into the code root.
 
 ## Submission Methods
 
@@ -56,6 +59,20 @@ NAME=retry_failed_hotfix bash scripts/dlc/submit_retry_failed.sh --dry-run
 ASSET_LIST_FILE=archive/temp_lists/custom_assets.txt bash scripts/dlc/submit_asset_list.sh --dry-run
 EXTRA_MAIN_ARGS="--prompt_type classify_object_category_prompt" bash scripts/dlc/submit_annotate.sh --dry-run
 ```
+
+Worker runtime selection:
+
+```bash
+DLC_PYTHON_RUNTIME=/path/visible/in/worker/genesis_gemma4_runtime.sh \
+MODEL_BACKEND=local_gemma4_multimodal \
+MODEL_PATH=/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8 \
+bash scripts/dlc/run_task.sh 0 1 \
+  --input_dir /data/assets \
+  --asset_list_file archive/temp_lists/test_assets_dlc.txt \
+  --output_dir /data/results
+```
+
+This is the supported `run_task.sh`-level mechanism for overriding `.venv_dlc`. The existing `submit_*.sh -> submit_batch.py -> launch_job.sh` path does not yet pass `DLC_PYTHON_RUNTIME` into the remote worker command, so do not assume setting it in the submitter shell is enough for a real DLC job.
 
 When you need raw control, `submit_batch.py` accepts extra `main.py` flags through `--command_args`. Those flags are appended after the chunk pair and do not change `run_task.sh` mode.
 
@@ -99,20 +116,20 @@ Examples:
 ```bash
 # API-backed probe (dry-run first)
 DLC_PROFILE=api_light TOTAL=1 NAME=api_probe \
-ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt \
+ASSET_LIST_FILE=archive/temp_lists/test_assets_dlc.txt \
 MODEL_BACKEND=openai_compatible MODEL_PATH=gemini-2.5-flash-image \
 API_BASE_URL=http://your-host API_KEY_ENV=NEWAPI_API_KEY \
 bash scripts/dlc/submit_probe.sh --dry-run
 
 # Local-HF probe (dry-run first)
 DLC_PROFILE=local_hf_default TOTAL=1 NAME=local_probe \
-ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt \
+ASSET_LIST_FILE=archive/temp_lists/test_assets_dlc.txt \
 MODEL_BACKEND=local_hf MODEL_PATH=/path/to/local/model \
 bash scripts/dlc/submit_probe.sh --dry-run
 
 # Gemma4 local multimodal probe (dry-run first)
 DLC_PROFILE=local_hf_default TOTAL=1 NAME=gemma4_probe \
-ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt \
+ASSET_LIST_FILE=archive/temp_lists/test_assets_dlc.txt \
 MODEL_BACKEND=local_gemma4_multimodal \
 MODEL_PATH=/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8 \
 bash scripts/dlc/submit_probe.sh --dry-run
@@ -160,8 +177,10 @@ Use `--dry-run` first on every rerun. Only fall back to raw `submit_batch.py` wh
 `local_gemma4_multimodal`:
 - Requires explicit `MODEL_PATH`; the probe wrapper rejects missing Gemma4 paths
 - Requires a Gemma4-capable Transformers runtime and DLC visibility of `/cpfs/user/zhuzihou/models/gemma4/...`
+- Requires Unsloth for `unsloth/*-bnb-4bit` or local 4-bit bitsandbytes Gemma4 checkpoints
 - Uses local GPU memory and starts with the `local_hf_default` profile for tiny probes
 - Dry-run output must include both `--model_backend local_gemma4_multimodal` and `--model_path <pinned-release-path>`
+- Local single-asset smoke evidence and exact runtime commands are documented in `docs/usage/gemma4_local_smoke.md`
 
 `openai_compatible`:
 - Sends images to a remote chat-completions-compatible endpoint

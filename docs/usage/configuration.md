@@ -88,6 +88,14 @@ Gemma4 会加载本地大模型。未明确做 live smoke/probe 时，不要用�
 
 Gemma4 backend 需要支持 Gemma4 多模态类的 Transformers 版本；本仓库依赖下限是 `transformers>=5.5.0`。如果运行环境缺少这些类，backend 会在加载前报出当前安装的 Transformers 版本。
 
+当前已验证的 Gemma4 smoke runtime 是：
+
+```text
+/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python
+```
+
+该环境来自 Genesis-LLM QLoRA 运行记录，包含 `transformers 5.8.0.dev0`、Unsloth、bitsandbytes 和 Torch `2.10.0+cu128`。仓库 `.venv_dlc` 中的 `transformers 5.2.0` 不足以完成 Gemma4 多模态图片输入；processor-only smoke 会缺少 `pixel_values` / `image_position_ids`。
+
 ### `model.name`
 
 模型名称或本地模型路径。
@@ -150,6 +158,12 @@ API 请求最大重试次数。当前实现会对部分瞬时 HTTP/网络错误�
 
 `local_gemma4_multimodal` 后端会把 `AnnotationPipeline` 生成的 `image_url` blocks 转换成 Hugging Face Gemma4 的 `image` blocks，并让 processor 负责 token/media 对齐。它不复用 `local_hf`，因为 `local_hf` 是 Qwen 风格视觉预处理路径。
 
+Unsloth 4-bit Gemma4 checkpoint 需要先加载 Unsloth patch。当前 backend 会在发现路径名包含 `unsloth`、本地 `config.json` 含 `unsloth_fixed: true`，或 `quantization_config` 是 4-bit bitsandbytes 时自动导入 Unsloth，并把默认 `UNSLOTH_COMPILE_LOCATION` 放到当前工作树之外。手动 smoke 时仍建议显式设置：
+
+```bash
+export UNSLOTH_COMPILE_LOCATION=/cpfs/user/zhuzihou/tmp/auto_asset_annotator_smoke/<run_id>/cache/unsloth_compiled_cache
+```
+
 Gemma4 base 模型固定路径：
 
 ```text
@@ -163,6 +177,8 @@ Genesis-LLM adapter 固定路径：
 ```
 
 默认不要启用 Genesis adapter；它需要在 Gemma4 base 通过 live smoke 后再做 A/B 对比。
+
+Gemma4 本地 smoke 的完整 runbook：`docs/usage/gemma4_local_smoke.md`。
 
 ## `data` 段
 

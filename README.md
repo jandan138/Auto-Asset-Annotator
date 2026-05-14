@@ -52,13 +52,26 @@ python -m auto_asset_annotator.main \
 Gemma4 不是默认路径，且会加载大模型；只有在明确做 Gemma4 probe 时使用：
 
 ```bash
-python -m auto_asset_annotator.main \
+RUN_ROOT=/cpfs/user/zhuzihou/tmp/auto_asset_annotator_smoke/$(date -u +%Y%m%dT%H%M%SZ)_grscenes_basket_6c68230d_gemma4
+DATA_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+mkdir -p "$RUN_ROOT/input" "$RUN_ROOT/output" "$RUN_ROOT/logs" "$RUN_ROOT/cache"
+printf '%s\n' 'basket/6c68230d67112b1dfd2bd7fa9322c756' > "$RUN_ROOT/input/asset_list.txt"
+
+HF_HUB_OFFLINE=1 \
+TRANSFORMERS_OFFLINE=1 \
+TOKENIZERS_PARALLELISM=false \
+UNSLOTH_COMPILE_LOCATION="$RUN_ROOT/cache/unsloth_compiled_cache" \
+PYTHONPATH=src \
+/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python \
+  -m auto_asset_annotator.main \
   --model_backend local_gemma4_multimodal \
   --model_path /cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8 \
-  --asset_list_file archive/temp_lists/probe_assets.txt \
-  --input_dir /path/to/assets \
-  --output_dir /path/to/results
+  --asset_list_file "$RUN_ROOT/input/asset_list.txt" \
+  --input_dir "$DATA_ROOT" \
+  --output_dir "$RUN_ROOT/output"
 ```
+
+Gemma4 local smoke 的完整流程、环境选择、Unsloth cache 隔离和真实输出示例见 `docs/usage/gemma4_local_smoke.md`。
 
 常用变体：
 
@@ -90,6 +103,8 @@ Gemma4 backend 需要 `transformers>=5.5.0`。如果环境里的 Transformers �
 - 安装部署: `docs/installation/linux_deployment.md`
 - 快速开始: `docs/usage/quick_start.md`
 - CLI 说明: `docs/usage/cli_reference.md`
+- Gemma4 本地 smoke: `docs/usage/gemma4_local_smoke.md`
+- 输出格式/schema: `docs/usage/output_schema.md`
 - DLC 运维流程: `docs/dlc/README.md`
 - 开发说明: `docs/development/project_structure.md`
 - 常见问题: `docs/troubleshooting/common_issues.md`

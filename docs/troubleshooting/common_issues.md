@@ -65,6 +65,69 @@ python -m auto_asset_annotator.main \
     --force
 ```
 
+### 6. Gemma4 processor 没有图片张量
+
+**现象**：processor-only smoke 只输出 `input_ids` / `attention_mask`，没有 `pixel_values` 或 `image_position_ids`。
+
+**常见日志**：
+
+```text
+processor_class: TokenizersBackend
+keys: ['attention_mask', 'input_ids']
+missing image tensor keys
+```
+
+**原因**：当前 Python 环境的 Transformers 不足以支持 Gemma4 多模态 processor。仓库 `.venv_dlc` 中的 `transformers 5.2.0` 已确认会出现这个问题。
+
+**处理**：
+
+1. 使用已验证的 Genesis-LLM QLoRA env：`/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python`
+2. 确认 `transformers.__version__` 是 `5.8.0.dev0` 或等价支持 Gemma4 多模态类的版本
+3. 先跑 `docs/usage/gemma4_local_smoke.md` 中的 processor-only smoke，再跑真实模型 smoke
+
+### 7. Gemma4 bitsandbytes FP4 断言失败
+
+**现象**：真实图片推理进入 Gemma4 vision tower 后失败。
+
+**常见日志**：
+
+```text
+FP4 quantization state not initialized
+AssertionError
+```
+
+**原因**：Unsloth 4-bit Gemma4 checkpoint 需要先加载 Unsloth patch。没有 patch 时，bitsandbytes 的 FP4 quantization state 会在 vision branch 初始化失败。
+
+**处理**：
+
+1. 使用当前 `local_gemma4_multimodal` backend，不要绕过 backend 手写推理。
+2. 确认环境中能导入 `unsloth`。
+3. 手写脚本必须在任何 Transformers import 前 `import unsloth`。
+4. 设置 `UNSLOTH_COMPILE_LOCATION` 到 run-local cache，避免污染仓库根目录。
+
+### 8. 仓库根目录出现 `unsloth_compiled_cache/`
+
+**现象**：`git status --short` 出现 `?? unsloth_compiled_cache/`。
+
+**原因**：Unsloth 默认把编译缓存写到当前工作目录。
+
+**处理**：
+
+1. 不要提交这个目录。
+2. 将后续 smoke 的 `UNSLOTH_COMPILE_LOCATION` 指到 run-local cache，例如 `/cpfs/user/zhuzihou/tmp/auto_asset_annotator_smoke/<run_id>/cache/unsloth_compiled_cache`。
+3. 当前 backend 默认会选择当前工作树之外的绝对路径；若仍出现 repo-root cache，优先检查是否手写脚本绕过了 backend。
+
+### 9. 输出格式和原始数据集 annotation 不一致
+
+**现象**：Auto-Asset 输出是 `{ "category/asset_id": {...} }`，而 GRScenes 原始 annotation 是直接对象并包含 `uid`、`asset_type`、`usd_size` 等字段。
+
+**解释**：这是两个不同 schema。Auto-Asset 输出与仓库现有 `./output/...` 结果一致，但不等于 GRScenes metadata schema。
+
+**处理**：
+
+- 只做 smoke 或标注结果保存时，保留 Auto-Asset 输出格式。
+- 如果要回填 GRScenes 原始 metadata，先按 `docs/usage/output_schema.md` 做 schema merge，不要直接覆盖。
+
 ## 二、历史修复工作流
 
 这些命令主要用于已经完成的大规模生产结果的维护，不是日常第一次运行的必经步骤。

@@ -107,7 +107,21 @@ Gemma4 base model 已物化到固定 release 路径：
 /cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8
 ```
 
-Gemma4 在 live smoke 和质量 gate 通过前仍然只应作为 probe 路径。通过这些 gate 后，获准的生产任务应引用这个不可变 release 路径；`/cpfs/user/zhuzihou/models/gemma4/current` 只适合手动调试或临时 probe。
+Gemma4 base 已通过单资产 live smoke，但仍只应作为 probe 路径，尚未通过多类别质量 gate 或生产批量 gate。通过这些 gate 后，获准的生产任务应引用这个不可变 release 路径；`/cpfs/user/zhuzihou/models/gemma4/current` 只适合手动调试或临时 probe。
+
+已验证的 smoke runtime 是：
+
+```text
+/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python
+```
+
+关键兼容性结论：
+
+- `.venv_dlc` 的 `transformers 5.2.0` 不足以跑 Gemma4 多模态；processor-only smoke 不会产生 image tensor keys。
+- Genesis-LLM QLoRA env 的 `transformers 5.8.0.dev0` 能加载 `Gemma4Processor` 和 Gemma4 多模态类。
+- Unsloth 4-bit Gemma4 checkpoint 必须先加载 Unsloth patch，否则真实图片推理会在 bitsandbytes FP4 vision branch 里失败。
+- 当前 backend 会自动识别 Unsloth/4-bit bitsandbytes Gemma4 路径，先导入 Unsloth，再导入 Transformers。
+- 默认 `UNSLOTH_COMPILE_LOCATION` 会选到当前工作树之外，避免在 repo 根目录生成 `unsloth_compiled_cache/`。
 
 Genesis-LLM 的 LoRA adapter 已单独放在：
 
@@ -116,3 +130,5 @@ Genesis-LLM 的 LoRA adapter 已单独放在：
 ```
 
 默认不要启用该 adapter。它来自 Genesis-LLM 的 text-to-physics 训练链路，不是经过验证的四视角图片资产标注 adapter。只有当 Gemma4 base live smoke 通过后，才把它作为 A/B 对照候选。
+
+完整 smoke runbook 和真实输出样例见 `docs/usage/gemma4_local_smoke.md`。Auto-Asset 输出 schema 与 GRScenes 原始 metadata 的差异见 `docs/usage/output_schema.md`。
