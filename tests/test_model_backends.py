@@ -1,6 +1,7 @@
 import builtins
 import importlib
 import io
+import json
 import os
 import types
 import sys
@@ -538,6 +539,256 @@ class TestGemma4MultimodalEngine(unittest.TestCase):
                         backend="local_gemma4_multimodal",
                     )
                 )
+
+    def test_unsloth_checkpoint_requires_unsloth_patch_with_clear_error(self):
+        fake_torch = types.SimpleNamespace(bfloat16="fake-bfloat16")
+
+        class FakeAutoModelForImageTextToText:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return object()
+
+        class FakeAutoProcessor:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return cls()
+
+        fake_transformers = types.SimpleNamespace(
+            __version__="5.8.0.dev0",
+            AutoModelForImageTextToText=FakeAutoModelForImageTextToText,
+            AutoProcessor=FakeAutoProcessor,
+        )
+
+        with mock.patch.dict(
+            sys.modules,
+            {
+                "torch": fake_torch,
+                "transformers": fake_transformers,
+                "unsloth": None,
+            },
+        ):
+            gemma4_module = self.import_gemma4_module_with_fake_deps()
+            with self.assertRaisesRegex(ValueError, "requires unsloth"):
+                gemma4_module.LocalGemma4MultimodalEngine(
+                    ModelConfig(
+                        name="/models/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit",
+                        backend="local_gemma4_multimodal",
+                    )
+                )
+
+    def test_unsloth_compile_location_defaults_outside_working_tree(self):
+        fake_torch = types.SimpleNamespace(bfloat16="fake-bfloat16")
+
+        class FakeLoadedModel:
+            pass
+
+        class FakeAutoModelForImageTextToText:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return FakeLoadedModel()
+
+        class FakeAutoProcessor:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return cls()
+
+        fake_transformers = types.SimpleNamespace(
+            AutoModelForImageTextToText=FakeAutoModelForImageTextToText,
+            AutoProcessor=FakeAutoProcessor,
+        )
+        fake_unsloth = types.SimpleNamespace(__version__="2026.4.8")
+
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("UNSLOTH_COMPILE_LOCATION", None)
+            with mock.patch.dict(
+                sys.modules,
+                {
+                    "torch": fake_torch,
+                    "transformers": fake_transformers,
+                    "unsloth": fake_unsloth,
+                },
+            ):
+                gemma4_module = self.import_gemma4_module_with_fake_deps()
+                gemma4_module.LocalGemma4MultimodalEngine(
+                    ModelConfig(
+                        name="/models/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit",
+                        backend="local_gemma4_multimodal",
+                    )
+                )
+
+            compile_location = os.environ.get("UNSLOTH_COMPILE_LOCATION", "")
+            self.assertIn(
+                "auto_asset_annotator_unsloth_compiled_cache", compile_location
+            )
+            self.assertNotEqual(compile_location, "unsloth_compiled_cache")
+
+    def test_unsloth_compile_location_avoids_repo_when_tmpdir_is_cwd(self):
+        fake_torch = types.SimpleNamespace(bfloat16="fake-bfloat16")
+
+        class FakeLoadedModel:
+            pass
+
+        class FakeAutoModelForImageTextToText:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return FakeLoadedModel()
+
+        class FakeAutoProcessor:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return cls()
+
+        fake_transformers = types.SimpleNamespace(
+            AutoModelForImageTextToText=FakeAutoModelForImageTextToText,
+            AutoProcessor=FakeAutoProcessor,
+        )
+        fake_unsloth = types.SimpleNamespace(__version__="2026.4.8")
+
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("UNSLOTH_COMPILE_LOCATION", None)
+            with mock.patch.dict(
+                sys.modules,
+                {
+                    "torch": fake_torch,
+                    "transformers": fake_transformers,
+                    "unsloth": fake_unsloth,
+                },
+            ):
+                gemma4_module = self.import_gemma4_module_with_fake_deps()
+                with mock.patch.object(
+                    gemma4_module.tempfile,
+                    "gettempdir",
+                    return_value=os.getcwd(),
+                ):
+                    gemma4_module.LocalGemma4MultimodalEngine(
+                        ModelConfig(
+                            name="/models/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit",
+                            backend="local_gemma4_multimodal",
+                        )
+                    )
+
+            compile_location = os.path.realpath(
+                os.environ.get("UNSLOTH_COMPILE_LOCATION", "")
+            )
+            working_tree = os.path.realpath(os.getcwd())
+            self.assertTrue(os.path.isabs(compile_location))
+            self.assertNotEqual(
+                os.path.commonpath([working_tree, compile_location]),
+                working_tree,
+            )
+
+    def test_unsloth_checkpoint_imports_unsloth_before_transformers(self):
+        fake_torch = types.SimpleNamespace(bfloat16="fake-bfloat16")
+
+        class FakeAutoModelForImageTextToText:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return object()
+
+        class FakeAutoProcessor:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return cls()
+
+        fake_transformers = types.SimpleNamespace(
+            AutoModelForImageTextToText=FakeAutoModelForImageTextToText,
+            AutoProcessor=FakeAutoProcessor,
+        )
+        fake_unsloth = types.SimpleNamespace(__version__="2026.4.8")
+        import_order = []
+        original_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name in {"unsloth", "torch", "transformers"}:
+                import_order.append(name)
+                return {
+                    "unsloth": fake_unsloth,
+                    "torch": fake_torch,
+                    "transformers": fake_transformers,
+                }[name]
+            return original_import(name, *args, **kwargs)
+
+        module_name = "src.auto_asset_annotator.core.gemma4_model"
+        original_module = sys.modules.pop(module_name, None)
+        with mock.patch("builtins.__import__", side_effect=fake_import):
+            try:
+                gemma4_module = importlib.import_module(module_name)
+                gemma4_module.LocalGemma4MultimodalEngine(
+                    ModelConfig(
+                        name="/models/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit",
+                        backend="local_gemma4_multimodal",
+                    )
+                )
+            finally:
+                restore_module_binding(module_name, original_module)
+
+        self.assertLess(
+            import_order.index("unsloth"), import_order.index("transformers")
+        )
+
+    def test_bitsandbytes_4bit_local_config_requires_unsloth_runtime(self):
+        fake_torch = types.SimpleNamespace(bfloat16="fake-bfloat16")
+
+        class FakeAutoModelForImageTextToText:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return object()
+
+        class FakeAutoProcessor:
+            @classmethod
+            def from_pretrained(cls, *args, **kwargs):
+                return cls()
+
+        fake_transformers = types.SimpleNamespace(
+            AutoModelForImageTextToText=FakeAutoModelForImageTextToText,
+            AutoProcessor=FakeAutoProcessor,
+        )
+        fake_unsloth = types.SimpleNamespace(__version__="2026.4.8")
+        import_order = []
+        original_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name in {"unsloth", "torch", "transformers"}:
+                import_order.append(name)
+                return {
+                    "unsloth": fake_unsloth,
+                    "torch": fake_torch,
+                    "transformers": fake_transformers,
+                }[name]
+            return original_import(name, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as model_dir:
+            with open(
+                os.path.join(model_dir, "config.json"), "w", encoding="utf-8"
+            ) as handle:
+                json.dump(
+                    {
+                        "quantization_config": {
+                            "quant_method": "bitsandbytes",
+                            "load_in_4bit": True,
+                        }
+                    },
+                    handle,
+                )
+
+            module_name = "src.auto_asset_annotator.core.gemma4_model"
+            original_module = sys.modules.pop(module_name, None)
+            with mock.patch("builtins.__import__", side_effect=fake_import):
+                try:
+                    gemma4_module = importlib.import_module(module_name)
+                    gemma4_module.LocalGemma4MultimodalEngine(
+                        ModelConfig(
+                            name=model_dir,
+                            backend="local_gemma4_multimodal",
+                        )
+                    )
+                finally:
+                    restore_module_binding(module_name, original_module)
+
+        self.assertIn("unsloth", import_order)
+        self.assertLess(
+            import_order.index("unsloth"), import_order.index("transformers")
+        )
 
     def test_inference_uses_gemma4_processor_chat_template_and_trims_prompt(self):
         fake_torch = types.SimpleNamespace(bfloat16="fake-bfloat16")

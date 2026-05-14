@@ -55,7 +55,10 @@ Materialization evidence:
   - processor-owned tokenized chat templating
   - missing Gemma4 Transformers classes with versioned errors
   - prompt-token trimming before decode
+  - Unsloth Gemma4 4-bit runtime patch requirement
+  - Unsloth compile-cache placement outside the repository working tree
 - Added a skipped-by-default processor-only smoke test gated by `RUN_GEMMA4_PROCESSOR_SMOKE=1`.
+- Added Unsloth runtime preparation for Unsloth Gemma4 checkpoint paths and local 4-bit bitsandbytes configs. The backend imports Unsloth before Transformers and defaults `UNSLOTH_COMPILE_LOCATION` to an absolute path outside the current working tree so Unsloth does not create `unsloth_compiled_cache/` in the repository root. Operators can override `UNSLOTH_COMPILE_LOCATION` to a run-local cache directory.
 - Updated DLC probe scripts so `local_gemma4_multimodal` can be selected explicitly.
 - Updated `submit_probe.sh` so model/API environment settings are converted into explicit `main.py` CLI flags for the resolved launcher command.
 - Made `submit_probe.sh` require `MODEL_PATH` for `local_gemma4_multimodal` and append enforced model flags after operator-provided `EXTRA_MAIN_ARGS`.
@@ -81,8 +84,16 @@ The initial red run failed on the new DLC tests because `submit_probe.sh` reject
 
 ## Open Issues / Next Gate
 
-- No live Gemma4 model load or annotation was run in this change.
-- The Gemma4 runtime environment still needs a tiny explicit smoke probe to verify Transformers/Gemma4 dependency compatibility and DLC visibility of `/cpfs/user/zhuzihou`.
+- Live single-asset Gemma4 base smoke was run after the initial implementation using `/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python`.
+- The checked `.venv_dlc` runtime has `transformers 5.2.0` and is not sufficient for Gemma4 multimodal input: processor-only smoke loaded a tokenizer-style processor and produced no image tensor keys.
+- The Genesis-LLM QLoRA environment has `transformers 5.8.0.dev0`, `Gemma4ForConditionalGeneration`, Torch `2.10.0+cu128`, bitsandbytes, and Unsloth. Local precheck on this node reported `torch.cuda.is_available() == True`; the Genesis-LLM Gate0 QLoRA run record itself should still be treated as dependency/plumbing evidence, not full CUDA capability evidence.
+- Processor-only smoke on the real GRScenes asset produced `Gemma4Processor` inputs with `pixel_values` and `image_position_ids`.
+- A normal Gemma4 CLI run without Unsloth patch failed in the vision branch with bitsandbytes `FP4 quantization state not initialized` / `AssertionError` inside the Gemma4 vision tower.
+- The fixed-backend live smoke succeeded for `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets/basket/6c68230d67112b1dfd2bd7fa9322c756`.
+- Smoke artifacts were kept outside the repository under `/cpfs/user/zhuzihou/tmp/auto_asset_annotator_smoke/20260514T024226Z_grscenes_basket_6c68230d_gemma4/`.
+- Fresh post-fix local verification: `PYTHONPATH=. .venv_dlc/bin/python -m unittest tests.test_model_backends tests.test_dlc_scripts` passed with 58 tests, 1 skipped.
+- Fresh Genesis-env regression verification: `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. /cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python -m pytest -p no:cacheprovider tests/test_model_backends.py::TestGemma4MultimodalEngine::test_unsloth_checkpoint_requires_unsloth_patch_with_clear_error -q` passed.
+- Fresh symlink/default-cache live regression used `/cpfs/user/zhuzihou/models/gemma4/current` with no caller-provided `UNSLOTH_COMPILE_LOCATION`; the backend set `/tmp/auto_asset_annotator_unsloth_compiled_cache`, generated text from the real asset images, and left no `unsloth_compiled_cache/` under the repository root.
 - A processor-only smoke can be run without model weights loaded by setting `RUN_GEMMA4_PROCESSOR_SMOKE=1` and optionally `GEMMA4_MODEL_PATH=<path>` for `tests/test_model_backends.py::TestGemma4MultimodalEngine::test_gemma4_processor_smoke_includes_image_tensors`.
 - Production jobs should pin the immutable release path, not `current`.
 - The Genesis adapter should only be evaluated after Gemma4 base passes the live smoke probe.

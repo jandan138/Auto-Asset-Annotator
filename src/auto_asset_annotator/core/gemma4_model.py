@@ -1,3 +1,6 @@
+import json
+import os
+import tempfile
 from typing import Any, Dict, List
 
 from ..config.settings import ModelConfig
@@ -6,6 +9,7 @@ from ..config.settings import ModelConfig
 class LocalGemma4MultimodalEngine:
     def __init__(self, config: ModelConfig):
         self.config = config
+        self._prepare_unsloth_runtime()
 
         try:
             import torch
@@ -42,6 +46,68 @@ class LocalGemma4MultimodalEngine:
         )
         print(f"[INFO] Using Gemma4 model class: {model_class.__name__}")
         print("[INFO] Gemma4 multimodal model loaded successfully.")
+
+    def _prepare_unsloth_runtime(self) -> None:
+        if not self._requires_unsloth_runtime():
+            return
+
+        os.environ.setdefault(
+            "UNSLOTH_COMPILE_LOCATION",
+            self._default_unsloth_compile_location(),
+        )
+
+        try:
+            import unsloth  # noqa: F401
+        except ImportError as exc:
+            raise ValueError(
+                "local_gemma4_multimodal backend requires unsloth for "
+                "Unsloth Gemma4 4-bit checkpoints. Use the Genesis-LLM QLoRA "
+                "runtime or install unsloth in the active Python environment."
+            ) from exc
+
+    def _requires_unsloth_runtime(self) -> bool:
+        model_name = str(self.config.name)
+        if "unsloth" in model_name.lower():
+            return True
+
+        config_path = os.path.join(os.path.realpath(model_name), "config.json")
+        try:
+            with open(config_path, "r", encoding="utf-8") as handle:
+                model_config = json.load(handle)
+        except (OSError, json.JSONDecodeError, TypeError):
+            return False
+
+        if model_config.get("unsloth_fixed") is True:
+            return True
+
+        quantization_config = model_config.get("quantization_config", {})
+        if not isinstance(quantization_config, dict):
+            return False
+
+        quant_method = str(quantization_config.get("quant_method", "")).lower()
+        load_in_4bit = bool(
+            quantization_config.get("load_in_4bit")
+            or quantization_config.get("_load_in_4bit")
+        )
+        return quant_method == "bitsandbytes" and load_in_4bit
+
+    def _default_unsloth_compile_location(self) -> str:
+        leaf_name = "auto_asset_annotator_unsloth_compiled_cache"
+        for root in (tempfile.gettempdir(), "/tmp", "/var/tmp"):
+            candidate = os.path.realpath(os.path.join(root, leaf_name))
+            if not self._is_path_under_working_tree(candidate):
+                return candidate
+        return os.path.realpath(os.path.join("/tmp", leaf_name))
+
+    def _is_path_under_working_tree(self, path: str) -> bool:
+        working_tree = os.path.realpath(os.getcwd())
+        try:
+            return (
+                os.path.commonpath([working_tree, os.path.realpath(path)])
+                == working_tree
+            )
+        except ValueError:
+            return False
 
     def _resolve_model_class(self):
         import transformers
