@@ -22,7 +22,7 @@
 | 缺四视角图资产 | 0 |
 | Gemma4 本地单资产 smoke | 已通过 |
 | DLC Gemma4 wrapper dry-run | 已通过 |
-| 真实 DLC 单资产 probe | 尚未执行 |
+| 真实 DLC 单资产 probe | 已提交，`dlc1i6qia2inzfmv` 当前 Queuing |
 | 全量真实 DLC 提交 | 尚未执行 |
 | 新输出根 | `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/<run_id>/output` |
 

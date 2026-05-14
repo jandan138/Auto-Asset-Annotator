@@ -16,7 +16,7 @@ Use the wrapper scripts for routine operations. Use `submit_batch.py` directly o
 
 ## Current Gemma4 Status
 
-As of 2026-05-14, Gemma4 reannotation for the GRScenes test0 dataset is ready for a one-asset real DLC probe, but the full real DLC run has not been submitted.
+As of 2026-05-14, Gemma4 reannotation for the GRScenes test0 dataset has one real DLC probe submitted and queuing: `dlc1i6qia2inzfmv` / `gemma4_grscenes_probe_0_1`. The full real DLC run has not been submitted.
 
 Current target:
 

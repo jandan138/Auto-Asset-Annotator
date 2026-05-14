@@ -2,11 +2,20 @@
 
 **Date**: 2026-05-14
 **Dataset**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
-**Status**: Ready for one-asset real DLC probe; full real submission has not been run.
+**Status**: One-asset real DLC probe submitted and currently queuing; full real submission has not been run.
 
 ## Plain Status
 
-The repository can now construct a Gemma4 DLC batch command without polluting old outputs. The safe entrypoint is:
+The repository can now construct and submit a Gemma4 DLC batch command without polluting old outputs. The submitted one-asset probe is:
+
+```text
+Job ID:   dlc1i6qia2inzfmv
+Job name: gemma4_grscenes_probe_0_1
+Status:   Queuing
+Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260514T071350Z_gemma4_probe_v1
+```
+
+The safe entrypoint remains:
 
 ```bash
 bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
@@ -60,7 +69,60 @@ DLC_WORKER_SETUP_SCRIPT=/cpfs/user/zhuzihou/conda-managed/bin/use-gcc-toolchain-
 - Gemma4 reannotation rejects protected `EXTRA_MAIN_ARGS` overrides for input, output, asset list, chunking, and model selection.
 - `python_runtime.sh` rejects `MODEL_BACKEND=local_gemma4_multimodal` without a non-empty `MODEL_PATH`.
 
-## Next Commands
+## Submitted Probe Record
+
+Probe asset:
+
+```text
+basket/6c68230d67112b1dfd2bd7fa9322c756
+```
+
+Probe run paths:
+
+```text
+RUN_ID=20260514T071350Z_gemma4_probe_v1
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260514T071350Z_gemma4_probe_v1
+ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260514T071350Z_gemma4_probe_v1/input/one_asset.txt
+OUTPUT_DIR=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260514T071350Z_gemma4_probe_v1/output
+```
+
+Submission command used:
+
+```bash
+DLC_WORKSPACE_ID=270969 \
+DLC_RESOURCE_ID=quota1r947pmazvk \
+RUN_ID=20260514T071350Z_gemma4_probe_v1 \
+ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260514T071350Z_gemma4_probe_v1/input/one_asset.txt \
+TOTAL=1 NAME=gemma4_grscenes_probe \
+bash scripts/dlc/submit_gemma4_reannotate.sh --submit
+```
+
+Observed DLC state after submission:
+
+```text
+Status: Queuing
+ReasonCode: JobEnqueued
+ReasonMessage: sync enqueue status from queueUnit status
+GmtCreateTime: 2026-05-14T07:14:14Z
+GmtSubmittedTime: 2026-05-14T07:14:18Z
+```
+
+At this stage no output JSON is expected because the worker has not started. The output directory was checked and had no files while the job was still queuing.
+
+Probe logs are under:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260514T071350Z_gemma4_probe_v1/logs
+```
+
+Monitor later with:
+
+```bash
+./dlc get job dlc1i6qia2inzfmv
+find /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260514T071350Z_gemma4_probe_v1/output -type f -maxdepth 4 -print
+```
+
+## Commands For A Future Probe
 
 Create a one-asset probe list:
 
