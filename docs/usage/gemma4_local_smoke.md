@@ -373,5 +373,61 @@ Gemma4 单资产 smoke 只证明链路可运行。进入更大范围前至少补
 - 与现有 Qwen/API 输出做并排质量对比。
 - 检查 `dimensions`、`mass`、`placement` 是否符合下游物理使用要求。
 - 明确是否需要 schema 转换到 GRScenes 原始 metadata。
-- DLC worker 上的同等 runtime 验证。
+- DLC worker 上的同等 runtime 验证。当前维护入口是 `scripts/dlc/submit_gemma4_reannotate.sh`，它会把 `DLC_WORKER_SETUP_SCRIPT`、`AUTO_ASSET_VENV`、`MODEL_BACKEND`、`MODEL_PATH`、`UNSLOTH_COMPILE_LOCATION` 等变量写入远端 worker command。
 - Genesis adapter A/B 对比，且只在 base 模型稳定后进行。
+
+## DLC 批量重标注入口
+
+GRScenes test0 全量重标注不要使用仓库根目录 `output/` 或 `output_reannotate/`。这两个目录保留给旧 Qwen 小模型结果对比。新的 Gemma4 输出应固定在：
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/<run_id>/output
+```
+
+先生成资产列表：
+
+```bash
+DATA_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)_gemma4_full_v1
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/$RUN_ID
+mkdir -p "$RUN_ROOT/input" "$RUN_ROOT/output" "$RUN_ROOT/logs" "$RUN_ROOT/cache"
+find "$DATA_ROOT" -mindepth 2 -maxdepth 2 -type d -printf '%P\n' | LC_ALL=C sort > "$RUN_ROOT/input/all_assets.txt"
+wc -l "$RUN_ROOT/input/all_assets.txt"
+head "$RUN_ROOT/input/all_assets.txt"
+tail "$RUN_ROOT/input/all_assets.txt"
+```
+
+先 dry-run：
+
+```bash
+RUN_ID=$RUN_ID \
+ASSET_LIST_FILE="$RUN_ROOT/input/all_assets.txt" \
+TOTAL=64 NAME=gemma4_grscenes_full_v1 \
+bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
+```
+
+然后先跑一个真实单资产 DLC probe：
+
+```bash
+DLC_WORKSPACE_ID=270969 \
+DLC_RESOURCE_ID=quota1r947pmazvk \
+RUN_ID=20260514_gemma4_probe_v1 \
+ASSET_LIST_FILE=/path/to/one_asset.txt \
+TOTAL=1 NAME=gemma4_grscenes_probe \
+bash scripts/dlc/submit_gemma4_reannotate.sh --submit
+```
+
+真实提交需要显式加 `--submit`，并设置 DLC workspace/resource：
+
+```bash
+DLC_WORKSPACE_ID=270969 \
+DLC_RESOURCE_ID=quota1r947pmazvk \
+RUN_ID=$RUN_ID \
+ASSET_LIST_FILE="$RUN_ROOT/input/all_assets.txt" \
+TOTAL=64 NAME=gemma4_grscenes_full_v1 \
+bash scripts/dlc/submit_gemma4_reannotate.sh --submit
+```
+
+生产前推荐顺序仍然是：单资产本地 smoke、单资产 DLC probe、小批量多类别 DLC run、全量 run。全量 run 前必须检查 dry-run 输出里包含 `annotation_runs/.../output`，不能指向旧输出目录或数据集原目录。
+
+`submit_gemma4_reannotate.sh` 会拒绝把 `--input_dir`、`--output_dir`、`--asset_list_file`、`--num_chunks`、`--chunk_index`、`--model_backend`、`--model_path` 放进 `EXTRA_MAIN_ARGS`。这些参数由 wrapper 统一生成，避免尾部重复参数覆盖安全输出路径。

@@ -1,20 +1,20 @@
 # GRScenes test0 标注前调研记录
 
 **日期**: 2026-05-14
-**状态**: 调研完成，尚未执行标注
+**状态**: 调研完成，Gemma4 全量重标注入口已接入 dry-run；尚未执行全量真实提交
 **目标数据集**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
 
 ## 结论
 
-目标数据集已经包含每个资产自己的扁平标注文件，但核心标注字段为空。当前仓库的既有 `output/` 结果可以复用一部分，剩余资产应只补跑缺失部分，不建议全量重跑，也不建议直接把标注输出写到目标目录。
+目标数据集已经包含每个资产自己的扁平标注文件，但核心标注字段为空。旧仓库 `output/` 中的 Qwen 小模型结果质量不足，当前决策是使用 Gemma4 对目标数据集做全量重新标注，同时保留旧输出用于对比。
 
 推荐流程：
 
-1. 建立临时 staging wrapped output 目录。
-2. 将当前仓库 `output/` 中与目标数据集精确匹配的完整结果复制到 staging。
-3. 只对目标数据集中缺少既有结果且有图片的资产运行标注，输出也写入 staging。
-4. 对 staging 做完整校验。
-5. 最后一次性将 staging 结果同步回目标数据集中每个 asset 内部的扁平 `{asset_id}_annotation.json`。
+1. 生成显式 `category/asset_id` 全量 asset list。
+2. 使用 `scripts/dlc/submit_gemma4_reannotate.sh --dry-run` 校验 DLC worker command。
+3. 先跑单资产真实 DLC probe，确认 worker runtime、日志和 JSON 输出。
+4. 再跑小批量多类别 probe。
+5. 最后全量提交，输出只写入新的 `annotation_runs/<run_id>/output`，不污染 `output/`、`output_reannotate/` 或数据集原目录。
 
 ## 数据集现状
 
@@ -23,9 +23,9 @@
 | 项目 | 数量 |
 |------|------|
 | 类别数 | 79 |
-| 二级 asset 目录数 | 53,171 |
-| 目标内置 `{asset_id}_annotation.json` 文件数 | 53,171 |
-| 扁平 schema 标注文件数 | 53,171 |
+| 二级 asset 目录数 | 53,167 |
+| 目标内置 `{asset_id}_annotation.json` 文件数 | 53,167 |
+| 扁平 schema 标注文件数 | 53,167 |
 | wrapped schema 标注文件数 | 0 |
 | invalid JSON 数 | 0 |
 | `raw_output` 数 | 0 |
@@ -35,30 +35,21 @@
 
 | 字段 | 空值数 |
 |------|------|
-| `description` | 53,171 |
-| `material` | 53,171 |
-| `dimensions` | 53,171 |
-| `mass` | 53,171 |
-| `placement` | 53,171 |
+| `description` | 53,167 |
+| `material` | 53,167 |
+| `dimensions` | 53,167 |
+| `mass` | 53,167 |
+| `placement` | 53,167 |
 
 图片情况：
 
 | 项目 | 数量 |
 |------|------|
 | asset 根目录有 `.png/.jpg/.jpeg` 图片 | 53,167 |
-| asset 根目录缺图片 | 4 |
+| asset 根目录缺图片 | 0 |
 | `thumbnails/` 目录 | 0 |
 
-缺图片资产：
-
-```text
-cabinet/b98d6ccbeb75dfdeb60e27649a5b055a
-other/d41d8cd98f00b204e9800998ecf8427e
-person/351316cbb083f9f4df0cccd60cbfa848
-person/d41d8cd98f00b204e9800998ecf8427e
-```
-
-其中 `person/d41d8cd98f00b204e9800998ecf8427e` 与 `other/d41d8cd98f00b204e9800998ecf8427e` 存在重复 asset id 场景，且 `person/...` 缺图片，不应自动跨类别复用 `other/...` 的结果。
+2026-05-14 复核结果：当前目标目录内 `53,167` 个资产均存在精确的 `front.png / left.png / back.png / right.png` 四视角图；未发现需要依赖 `0.png/1.png/2.png/3.png` fallback 的资产。早期记录中的 4 个缺图资产当前已不在目标目录内。
 
 ## 与当前仓库输出的覆盖关系
 
@@ -66,7 +57,7 @@ person/d41d8cd98f00b204e9800998ecf8427e
 
 | 项目 | 数量 |
 |------|------|
-| 目标 asset 总数 | 53,171 |
+| 目标 asset 总数 | 53,167 |
 | 与当前 `output/` 精确匹配 | 44,901 |
 | 精确匹配缺失 | 8,270 |
 
@@ -111,51 +102,63 @@ GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json
 
 另外，`--retry_incomplete` 只检查 `--output_dir` 中已有的 wrapped output 文件，不会检查目标数据集内部的扁平 JSON。因此目标目录里虽然字段全空，但不能靠直接指定 `--retry_incomplete` 自动识别。
 
-## 建议执行方案
+## Gemma4 全量重标建议执行方案
 
-### 1. 准备 staging
+### 1. 生成显式全量 asset list
 
-建议使用目标数据集旁边的临时目录，例如：
-
-```text
-/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_staging/grscenes_wrapped_output
-```
-
-staging 保持当前 pipeline 的 wrapped output 格式，便于复用现有校验脚本和 DLC 工作流。
-
-### 2. 复用既有结果
-
-从当前仓库 `output/` 中筛选出与目标数据集 `category/asset_id` 精确匹配、无 `raw_output`、核心字段完整的结果，复制到 staging。
-
-不要默认做 uid fallback。若未来需要 fallback，必须满足：
-
-- 源端和目标端该 asset id 都唯一。
-- 源 wrapped key 与源路径一致。
-- 类别差异经过人工确认。
-- 审计记录明确标出 match mode。
-
-本次调研中可安全 uid fallback 数为 0。
-
-### 3. 只补跑缺失资产
-
-生成 residual asset list，内容必须是相对目标 `--input_dir` 的 `category/asset_id` 路径。
-
-本次应自动补跑的资产范围是 8,269 个有图片、且不在当前 `output/` 的唯一 asset id。`person/d41d8cd98f00b204e9800998ecf8427e` 因缺图片和重复 id 歧义，应单独列为 exception，不进入自动补跑。
-
-### 4. 标注输出仍写入 staging
-
-示例命令形态：
+不要依赖默认扫描代表“每个目录”。当前 `list_assets()` 与二级目录全集一致，但全量生产仍应固定使用显式 list：
 
 ```bash
-python -m auto_asset_annotator.main \
-  --input_dir /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets \
-  --output_dir /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_staging/grscenes_wrapped_output \
-  --asset_list_file /path/to/residual_assets.txt
+DATA_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)_gemma4_full_v1
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/$RUN_ID
+mkdir -p "$RUN_ROOT/input" "$RUN_ROOT/output" "$RUN_ROOT/logs" "$RUN_ROOT/cache"
+find "$DATA_ROOT" -mindepth 2 -maxdepth 2 -type d -printf '%P\n' | LC_ALL=C sort > "$RUN_ROOT/input/all_assets.txt"
+wc -l "$RUN_ROOT/input/all_assets.txt"
+head "$RUN_ROOT/input/all_assets.txt"
+tail "$RUN_ROOT/input/all_assets.txt"
 ```
 
-DLC 执行时也应使用 explicit asset list workflow，不要全量扫描运行。
+期望行数：`53,167`。
 
-### 5. 同步回目标扁平 JSON
+### 2. 只读校验四视角图
+
+```bash
+while read -r rel; do
+  for view in front.png left.png back.png right.png; do
+    test -f "$DATA_ROOT/$rel/$view" || echo "$rel missing $view"
+  done
+done < "$RUN_ROOT/input/all_assets.txt"
+```
+
+当前复核结果为空输出，即没有缺图资产。
+
+### 3. DLC dry-run
+
+```bash
+RUN_ID=$RUN_ID \
+ASSET_LIST_FILE="$RUN_ROOT/input/all_assets.txt" \
+TOTAL=64 NAME=gemma4_grscenes_full_v1 \
+bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
+```
+
+全量建议 `TOTAL=64`，约 `831` assets/chunk；如果更重视失败重试粒度且 quota 允许，可用 `TOTAL=96`，约 `554` assets/chunk。保持 `TOTAL <= 100`，避免触发 `submit_batch.py` 默认安全上限。
+
+### 4. 单资产真实 probe
+
+全量提交前必须先用一个资产列表跑真实 DLC probe：
+
+```bash
+printf '%s\n' 'basket/6c68230d67112b1dfd2bd7fa9322c756' > "$RUN_ROOT/input/one_asset.txt"
+DLC_WORKSPACE_ID=270969 \
+DLC_RESOURCE_ID=quota1r947pmazvk \
+RUN_ID=${RUN_ID}_probe \
+ASSET_LIST_FILE="$RUN_ROOT/input/one_asset.txt" \
+TOTAL=1 NAME=gemma4_grscenes_probe \
+bash scripts/dlc/submit_gemma4_reannotate.sh --submit
+```
+
+### 5. 同步回目标扁平 JSON（后续独立步骤）
 
 需要一个 dry-run 默认开启、路径可配置的新同步工具，将 staging wrapped output 填回：
 
@@ -193,13 +196,13 @@ GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json
 
 最终同步后：
 
-- 全量扫描 53,171 个目标 asset。
+- 全量扫描 53,167 个目标 asset。
 - 确认 `description/material/dimensions/mass/placement` 是否仍有空值。
-- 输出 exception report，至少包含 4 个缺图片资产和任何补跑失败资产。
+- 输出 exception report，包含任何补跑失败资产或后续新增缺图资产。
 
 ## 当前不建议的做法
 
-- 不建议全量重跑 53,171 个资产，因为 44,901 个可以从当前 `output/` 复用。
+- 不建议把 Gemma4 全量重标输出写入旧 `output/`、`output_reannotate/` 或数据集原目录；应使用 `annotation_runs/<run_id>/output`。
 - 不建议直接将 `--output_dir` 指向目标 `GRScenes_assets`。
 - 不建议直接使用现有 `scripts/fill_annotations.py --apply`，因为该脚本目标路径硬编码，且缺少本次所需的完整 preflight、fallback、审计和目标外部路径保护。
 - 不建议自动跨类别使用 uid fallback，当前数据中已有重复 id 和类别歧义。

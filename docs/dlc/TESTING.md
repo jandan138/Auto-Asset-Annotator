@@ -18,12 +18,13 @@ PYTHONPATH=. .venv_dlc/bin/python -m unittest tests.test_dlc_scripts
 bash scripts/dlc/submit_annotate.sh --dry-run
 MODEL_BACKEND=openai_compatible ASSET_LIST_FILE=archive/temp_lists/test_assets_dlc.txt bash scripts/dlc/submit_probe.sh --dry-run
 MODEL_BACKEND=local_gemma4_multimodal MODEL_PATH=/cpfs/user/zhuzihou/models/gemma4/current ASSET_LIST_FILE=archive/temp_lists/test_assets_dlc.txt bash scripts/dlc/submit_probe.sh --dry-run
+ASSET_LIST_FILE=archive/temp_lists/test_assets_dlc.txt bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
 bash scripts/dlc/submit_retry_failed.sh --dry-run
 bash scripts/dlc/submit_retry_incomplete.sh --dry-run
 bash scripts/dlc/submit_asset_list.sh --dry-run --asset_list_file archive/temp_lists/failed_assets.txt
 
 # Separate launch-layer probe when you need resolved profile / worker command evidence
-# Use a fake DLC binary locally for this check. A real DLC binary will submit a real job.
+# This is still dry-run unless DLC_SUBMIT=1 and DLC_DRY_RUN=0 are both set.
 DLC_BIN=/path/to/fake/dlc bash scripts/dlc/launch_job.sh annotate_assets 0 4
 ```
 
@@ -61,7 +62,7 @@ MODEL_PATH=/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-uns
 bash scripts/dlc/submit_probe.sh --dry-run
 ```
 
-For a real probe, run the same command without `--dry-run`.
+For a real probe, run the same command with `--submit` plus explicit `DLC_WORKSPACE_ID` and `DLC_RESOURCE_ID`.
 The explicit `ASSET_LIST_FILE` is what keeps the real probe tiny; `TOTAL=1` alone does not narrow a full input directory.
 
 Gemma4-specific local smoke should be run before any real DLC Gemma4 probe. The current validated local runtime is:
@@ -74,9 +75,11 @@ The checked `.venv_dlc` runtime is not enough for Gemma4 multimodal image input 
 
 Runtime wiring status:
 
-- Direct `run_task.sh` execution can override the default `.venv_dlc` / `.venv` selection with worker-side `DLC_PYTHON_RUNTIME=/path/to/runtime_wrapper.sh`.
-- The current submission wrappers do not encode `DLC_PYTHON_RUNTIME` into the submitted DLC command. A local dry-run that sets `DLC_PYTHON_RUNTIME` in the submitter shell is not enough evidence that the remote worker will use it.
-- A real Gemma4 DLC probe should remain blocked until the worker log shows the effective Python executable, Transformers version, Gemma4 image tensor keys, and `UNSLOTH_COMPILE_LOCATION`.
+- Direct `run_task.sh` execution can override the default `.venv_dlc` / `.venv` selection with worker-side `AUTO_ASSET_VENV=/path/to/env` or `DLC_PYTHON_RUNTIME=/path/to/runtime_wrapper.sh`.
+- `launch_job.sh` now encodes an allowlist of worker runtime variables into the submitted DLC command. For Gemma4, dry-run output must show `DLC_WORKER_SETUP_SCRIPT`, `AUTO_ASSET_VENV`, `MODEL_BACKEND=local_gemma4_multimodal`, `MODEL_PATH=...`, and `UNSLOTH_COMPILE_LOCATION=...`.
+- `launch_job.sh` only submits when `DLC_SUBMIT=1`, `DLC_DRY_RUN=0`, explicit workspace/resource IDs are set, and `DLC_REAL_SUBMIT_CONFIRM` exactly matches the job name. `submit_batch.py --submit` sets that confirmation per chunk.
+- `submit_gemma4_reannotate.sh` is the maintained GRScenes reannotation wrapper. It defaults to the verified Genesis-LLM QLoRA environment, requires the exact `annotation_runs/<run_id>/output` output shape, and refuses protected `EXTRA_MAIN_ARGS` overrides for input, output, asset list, chunking, and model selection.
+- A real Gemma4 DLC probe should remain blocked until the dry-run command is reviewed. The first real probe should then capture worker logs showing the effective Python executable, Transformers version, Gemma4 image tensor keys, and `UNSLOTH_COMPILE_LOCATION`.
 
 ## Required Evidence
 
@@ -100,6 +103,8 @@ Pass the smoke stage only if all of the following are true:
 - wrapper dry-runs exit `0`
 - dry-run output shows one chunk pair only, with no duplicated chunk args
 - the intended retry or asset-list flags appear in the resolved command
+- Gemma4 dry-run output shows isolated `annotation_runs/.../output` and the forwarded worker runtime variables
+- the final Gemma4 command contains exactly one effective `--output_dir`, and it is the wrapper-owned `annotation_runs/<run_id>/output`
 - direct `launch_job.sh` output is used with a fake `DLC_BIN` whenever you need to verify resolved profile or final worker command details without submitting a real job
 
 Fail the smoke stage if any of these happen:
@@ -120,3 +125,11 @@ Escalate only in this order:
 4. Full production submission after the small run confirms throughput and output quality
 
 Do not skip directly from a broken or incomplete smoke test to a large DLC submission.
+
+Full GRScenes reannotation must use a new output root under:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/<run_id>/output
+```
+
+Do not reuse the existing repository `output/` or `output_reannotate/` directories. Those contain earlier Qwen-small-model results and should remain available for comparison.

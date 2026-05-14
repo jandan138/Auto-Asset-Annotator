@@ -3,12 +3,27 @@ set -euo pipefail
 
 CODE_ROOT=${DLC_CODE_ROOT:-"/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator"}
 
-if [ -d "$CODE_ROOT/.venv_dlc" ]; then
+if [ -n "${DLC_WORKER_SETUP_SCRIPT:-}" ] && [ "${AUTO_ASSET_WORKER_SETUP_SOURCED:-0}" != "1" ]; then
+    if [ ! -f "$DLC_WORKER_SETUP_SCRIPT" ]; then
+        echo "ERROR: DLC_WORKER_SETUP_SCRIPT is not a file: $DLC_WORKER_SETUP_SCRIPT" >&2
+        exit 1
+    fi
+    # shellcheck disable=SC1090
+    if ! source "$DLC_WORKER_SETUP_SCRIPT"; then
+        echo "ERROR: DLC_WORKER_SETUP_SCRIPT failed: $DLC_WORKER_SETUP_SCRIPT" >&2
+        exit 1
+    fi
+    set -euo pipefail
+fi
+
+if [ -n "${AUTO_ASSET_VENV:-}" ]; then
+    VENV_PATH="$AUTO_ASSET_VENV"
+elif [ -d "$CODE_ROOT/.venv_dlc" ]; then
     VENV_PATH="$CODE_ROOT/.venv_dlc"
 elif [ -d "$CODE_ROOT/.venv" ]; then
     VENV_PATH="$CODE_ROOT/.venv"
 else
-    echo "ERROR: No virtual environment found at $CODE_ROOT/.venv_dlc or $CODE_ROOT/.venv" >&2
+    echo "ERROR: No virtual environment found. Set AUTO_ASSET_VENV or create $CODE_ROOT/.venv_dlc or $CODE_ROOT/.venv" >&2
     exit 1
 fi
 
@@ -103,6 +118,11 @@ if [ "$MODEL_BACKEND_VALUE" = "openai_compatible" ]; then
         echo "ERROR: Environment variable named by API_KEY_ENV ('$API_KEY_ENV_VALUE') is not set" >&2
         exit 1
     fi
+fi
+
+if [ "$MODEL_BACKEND_VALUE" = "local_gemma4_multimodal" ] && [ -z "$MODEL_PATH_VALUE" ]; then
+    echo "ERROR: MODEL_PATH is required when MODEL_BACKEND=local_gemma4_multimodal" >&2
+    exit 1
 fi
 
 if { [ "$MODEL_BACKEND_VALUE" = "local_hf" ] || [ "$MODEL_BACKEND_VALUE" = "local_gemma4_multimodal" ]; } && [ -n "$MODEL_PATH_VALUE" ]; then

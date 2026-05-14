@@ -2,6 +2,21 @@
 set -euo pipefail
 
 CODE_ROOT=${DLC_CODE_ROOT:-"/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator"}
+
+if [ -n "${DLC_WORKER_SETUP_SCRIPT:-}" ]; then
+    if [ ! -f "$DLC_WORKER_SETUP_SCRIPT" ]; then
+        echo "ERROR: DLC_WORKER_SETUP_SCRIPT is not a file: $DLC_WORKER_SETUP_SCRIPT" >&2
+        exit 1
+    fi
+    # shellcheck disable=SC1090
+    if ! source "$DLC_WORKER_SETUP_SCRIPT"; then
+        echo "ERROR: DLC_WORKER_SETUP_SCRIPT failed: $DLC_WORKER_SETUP_SCRIPT" >&2
+        exit 1
+    fi
+    set -euo pipefail
+    export AUTO_ASSET_WORKER_SETUP_SOURCED=1
+fi
+
 PYTHON_RUNTIME=${DLC_PYTHON_RUNTIME:-"$CODE_ROOT/scripts/dlc/python_runtime.sh"}
 
 append_supported_cli_args() {

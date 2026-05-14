@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import os
 import shlex
 import subprocess
 import sys
@@ -25,7 +26,7 @@ def submit_jobs(
     data_sources: Optional[str] = None,
     command_args: Optional[str] = None,
     max_total: int = 100,
-    dry_run: bool = False,
+    dry_run: bool = True,
 ) -> None:
     """
     Submit batch DLC jobs for distributed annotation.
@@ -80,12 +81,23 @@ def submit_jobs(
 
         command_str = shlex.join(cmd)
 
+        env = os.environ.copy()
+
         if dry_run:
+            env["DLC_DRY_RUN"] = "1"
+            env["DLC_SUBMIT"] = "0"
             dry_run_commands.append(command_str)
             print(f"DRY RUN chunk {chunk_id}/{chunk_total - 1}: {command_str}")
-            successful.append(chunk_id)
+            try:
+                subprocess.run(cmd, check=True, cwd=str(repo_root), env=env)
+                successful.append(chunk_id)
+            except subprocess.CalledProcessError:
+                failed.append(chunk_id)
             continue
 
+        env["DLC_DRY_RUN"] = "0"
+        env["DLC_SUBMIT"] = "1"
+        env["DLC_REAL_SUBMIT_CONFIRM"] = f"{task_name}_{chunk_id}_{chunk_total}"
         print(f"Submitting chunk {chunk_id}/{chunk_total - 1}: {command_str}")
 
         # Exponential backoff retry: up to 3 retries with 1s/2s/4s delays
@@ -93,7 +105,7 @@ def submit_jobs(
         success = False
         for attempt in range(max_retries + 1):
             try:
-                subprocess.run(cmd, check=True, cwd=str(repo_root))
+                subprocess.run(cmd, check=True, cwd=str(repo_root), env=env)
                 success = True
                 break
             except subprocess.CalledProcessError as exc:
@@ -127,6 +139,9 @@ def submit_jobs(
         print(f"  Resolved launcher commands ({len(dry_run_commands)}):")
         for command in dry_run_commands:
             print(f"    {command}")
+        if failed:
+            print("\nDRY RUN failed: one or more launcher validations failed.")
+            raise SystemExit(1)
         print("\nDRY RUN complete: no jobs were submitted.")
         return
 
@@ -143,10 +158,10 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Submit 4 chunks for asset annotation
+  # Dry-run 4 chunks for asset annotation (default)
   python scripts/dlc/submit_batch.py --total 4 --name asset_annotation
 
-  # Submit with custom data sources
+  # Dry-run with custom data sources
   python scripts/dlc/submit_batch.py --total 8 --name annotation \\
       --data_sources "d-source1,d-source2"
 
@@ -156,6 +171,10 @@ Examples:
 
   # Preview resolved launcher commands without submitting jobs
   python scripts/dlc/submit_batch.py --total 2 --name dryrun_test --dry-run
+
+  # Submit real DLC jobs after reviewing dry-run output
+  DLC_WORKSPACE_ID=270969 DLC_RESOURCE_ID=quota1r947pmazvk \\
+  python scripts/dlc/submit_batch.py --total 4 --name asset_annotation --submit
 
   # Increase max-total limit for large batches
   python scripts/dlc/submit_batch.py --total 200 --name big_batch --max-total 250
@@ -175,12 +194,14 @@ Examples:
     )
     parser.add_argument(
         "--data_sources",
+        "--data-sources",
         type=str,
         default=None,
         help="Comma-separated data source IDs for DLC (default: use launch_job.sh default)",
     )
     parser.add_argument(
         "--command_args",
+        "--command-args",
         type=str,
         default=None,
         help="Extra auto_asset_annotator.main flags for chunk mode (e.g., '--input_dir /path --output_dir /path')",
@@ -191,10 +212,19 @@ Examples:
         default=100,
         help="Maximum allowed chunk count to prevent accidental massive submissions (default: 100)",
     )
-    parser.add_argument(
+    submit_mode = parser.add_mutually_exclusive_group()
+    submit_mode.add_argument(
         "--dry-run",
+        dest="submit",
+        action="store_false",
+        default=False,
+        help="Validate resolved launcher commands without submitting jobs (default)",
+    )
+    submit_mode.add_argument(
+        "--submit",
+        dest="submit",
         action="store_true",
-        help="Print the resolved launcher commands without submitting jobs",
+        help="Submit real DLC jobs. Requires launch_job.sh real-submit guards to pass.",
     )
     args = parser.parse_args()
 
@@ -208,7 +238,7 @@ Examples:
         args.data_sources,
         args.command_args,
         args.max_total,
-        args.dry_run,
+        dry_run=not args.submit,
     )
 
 
