@@ -75,12 +75,14 @@ Responsibilities:
 - load the processor through `AutoProcessor.from_pretrained(...)`
 - load a multimodal generation class, preferring `AutoModelForImageTextToText` when available
 - convert `image_url` blocks to `image` blocks
-- place image blocks before text blocks for Gemma4 compatibility
+- preserve the pipeline content order while converting image blocks in place
 - call `processor.apply_chat_template(..., tokenize=True, return_dict=True, return_tensors="pt", add_generation_prompt=True)`
 - call `model.generate(...)`
 - decode only newly generated tokens and return plain text
 
 The implementation should use tests with fake processor/model objects. Real model loading is intentionally left to an explicit later smoke probe.
+
+Gemma4 requires a Transformers build with Gemma4 multimodal classes. The project dependency floor is `transformers>=5.5.0`, and the backend error should include the installed Transformers version when the required classes are unavailable.
 
 ## Configuration Design
 

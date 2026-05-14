@@ -22,7 +22,7 @@ python -m auto_asset_annotator.main [OPTIONS]
 | `--retry_incomplete` | Flag | 仅重试 `material`、`dimensions`、`mass`、`placement` 中存在空值的结果。 |
 | `--num_chunks` | Int | 总分块数，用于并行任务切片。 |
 | `--chunk_index` | Int | 当前作业处理的块索引，从 `0` 开始。 |
-| `--model_backend` | String | 显式选择 `local_hf` 或 `openai_compatible`。 |
+| `--model_backend` | String | 显式选择 `local_hf`、`local_gemma4_multimodal` 或 `openai_compatible`。 |
 | `--api_base_url` | String | `openai_compatible` 后端的 API base URL。 |
 | `--api_key_env` | String | `openai_compatible` 后端读取 API key 的环境变量名。 |
 

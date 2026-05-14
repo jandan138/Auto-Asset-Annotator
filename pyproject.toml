@@ -5,7 +5,7 @@ description = "3D Asset Automated Annotation Tool based on Qwen3-VL"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "transformers",
+    "transformers>=5.5.0",
     "torch",
     "torchvision",
     "pillow",

@@ -18,9 +18,10 @@ pip install -e .
 python -m auto_asset_annotator.main --input_dir /path/to/assets --output_dir /path/to/results
 ```
 
-默认配置现在同时支持两条路径，但仓库中 checked-in 的 `config/config.yaml` 保持为可直接运行的 `local_hf` 默认值：
+默认配置现在支持三种 backend 路径，但仓库中 checked-in 的 `config/config.yaml` 保持为可直接运行的 `local_hf` 默认值：
 
 - `local_hf`：加载本地 Hugging Face/Qwen-VL 权重。
+- `local_gemma4_multimodal`：加载本地 Gemma4 image-text 权重，使用独立 Gemma4 processor 链路。
 - `openai_compatible`：把图片转成 data URL 后调用兼容 OpenAI Chat Completions 的多模态 API。仓库中的示例目标模型是 `gemini-2.5-flash-image`。
 
 API 后端是显式示例路径，不是默认运行模式。使用 API 后端前，必须同时配置真实的 `api_base_url` 和 `NEWAPI_API_KEY`，不要把密钥写入仓库文件：
@@ -48,6 +49,17 @@ python -m auto_asset_annotator.main \
   --output_dir /path/to/results
 ```
 
+Gemma4 不是默认路径，且会加载大模型；只有在明确做 Gemma4 probe 时使用：
+
+```bash
+python -m auto_asset_annotator.main \
+  --model_backend local_gemma4_multimodal \
+  --model_path /cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8 \
+  --asset_list_file archive/temp_lists/probe_assets.txt \
+  --input_dir /path/to/assets \
+  --output_dir /path/to/results
+```
+
 常用变体：
 
 ```bash
@@ -66,7 +78,11 @@ python -m auto_asset_annotator.main --input_dir /path/to/assets --output_dir /pa
 
 `openai_compatible` 后端复用同一条 `CLI -> Config -> Engine -> AnnotationPipeline -> parser` 链路，只替换 `ModelEngine` 的推理实现。它会读取 `model.api_base_url`、`model.api_key_env`、`model.api_timeout_seconds`、`model.api_max_retries`，并将本地图像路径编码成 data URL 后提交到 `/v1/chat/completions`。
 
-`device_map`、`dtype`、`attn_implementation` 只对 `local_hf` 生效；切换到 `openai_compatible` 时这些字段会被忽略。
+`local_gemma4_multimodal` 后端也复用同一条 pipeline/parser 链路，但会在 engine 内把 pipeline 的 `image_url` blocks 转成 Gemma4/Hugging Face 的 `image` blocks。它不复用 `local_hf`，因为 `local_hf` 仍是 Qwen 风格视觉预处理链路。
+
+Gemma4 backend 需要 `transformers>=5.5.0`。如果环境里的 Transformers 太旧，backend 会在加载前报出当前版本。
+
+`device_map`、`dtype`、`attn_implementation` 只对本地后端生效；切换到 `openai_compatible` 时这些字段会被忽略。
 
 ## Documentation
 

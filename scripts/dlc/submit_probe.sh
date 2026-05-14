@@ -8,6 +8,7 @@ TOTAL=${TOTAL:-1}
 NAME=${NAME:-annotate_probe}
 ASSET_LIST_FILE=${ASSET_LIST_FILE:-}
 FORWARD_ARGS=()
+MODEL_CLI_ARGS=()
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -33,7 +34,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "${MODEL_BACKEND:-}" ]; then
-    echo "ERROR: submit_probe.sh requires explicit MODEL_BACKEND (local_hf or openai_compatible)" >&2
+    echo "ERROR: submit_probe.sh requires explicit MODEL_BACKEND (local_hf, local_gemma4_multimodal, or openai_compatible)" >&2
     exit 1
 fi
 
@@ -49,13 +50,40 @@ case "$MODEL_BACKEND" in
     local_hf)
         DLC_PROFILE=${DLC_PROFILE:-local_hf_default}
         ;;
+    local_gemma4_multimodal)
+        DLC_PROFILE=${DLC_PROFILE:-local_hf_default}
+        ;;
     *)
         echo "ERROR: Unsupported MODEL_BACKEND for probe: $MODEL_BACKEND" >&2
         exit 1
         ;;
 esac
 
-export TOTAL NAME DLC_PROFILE ASSET_LIST_FILE MODEL_BACKEND
+if [ "$MODEL_BACKEND" = "local_gemma4_multimodal" ] && [ -z "${MODEL_PATH:-}" ]; then
+    echo "ERROR: MODEL_PATH is required when MODEL_BACKEND=local_gemma4_multimodal" >&2
+    exit 1
+fi
+
+if [ -n "${MODEL_PATH:-}" ]; then
+    MODEL_CLI_ARGS+=("--model_path" "$MODEL_PATH")
+fi
+MODEL_CLI_ARGS+=("--model_backend" "$MODEL_BACKEND")
+if [ -n "${API_BASE_URL:-}" ]; then
+    MODEL_CLI_ARGS+=("--api_base_url" "$API_BASE_URL")
+fi
+if [ -n "${API_KEY_ENV:-}" ]; then
+    MODEL_CLI_ARGS+=("--api_key_env" "$API_KEY_ENV")
+fi
+
+printf -v MODEL_EXTRA_MAIN_ARGS '%q ' "${MODEL_CLI_ARGS[@]}"
+MODEL_EXTRA_MAIN_ARGS=${MODEL_EXTRA_MAIN_ARGS% }
+if [ -n "${EXTRA_MAIN_ARGS:-}" ]; then
+    EXTRA_MAIN_ARGS="$EXTRA_MAIN_ARGS $MODEL_EXTRA_MAIN_ARGS"
+else
+    EXTRA_MAIN_ARGS="$MODEL_EXTRA_MAIN_ARGS"
+fi
+
+export TOTAL NAME DLC_PROFILE ASSET_LIST_FILE MODEL_BACKEND EXTRA_MAIN_ARGS
 
 echo "[probe] TOTAL=$TOTAL NAME=$NAME DLC_PROFILE=$DLC_PROFILE MODEL_BACKEND=$MODEL_BACKEND"
 echo "[probe] ASSET_LIST_FILE=$ASSET_LIST_FILE"

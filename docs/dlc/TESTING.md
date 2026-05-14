@@ -17,6 +17,7 @@ Recommended local checks:
 PYTHONPATH=. .venv_dlc/bin/python -m unittest tests.test_dlc_scripts
 bash scripts/dlc/submit_annotate.sh --dry-run
 MODEL_BACKEND=openai_compatible ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt bash scripts/dlc/submit_probe.sh --dry-run
+MODEL_BACKEND=local_gemma4_multimodal MODEL_PATH=/cpfs/user/zhuzihou/models/gemma4/current ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt bash scripts/dlc/submit_probe.sh --dry-run
 bash scripts/dlc/submit_retry_failed.sh --dry-run
 bash scripts/dlc/submit_retry_incomplete.sh --dry-run
 bash scripts/dlc/submit_asset_list.sh --dry-run --asset_list_file archive/temp_lists/failed_assets.txt
@@ -49,6 +50,14 @@ DLC_PROFILE=local_hf_default TOTAL=1 NAME=local_probe \
 ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt \
 INPUT_DIR=/data/test_assets OUTPUT_DIR=/data/test_results \
 MODEL_BACKEND=local_hf MODEL_PATH=/path/to/local/model \
+bash scripts/dlc/submit_probe.sh --dry-run
+
+# Gemma4 local multimodal probe
+DLC_PROFILE=local_hf_default TOTAL=1 NAME=gemma4_probe \
+ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt \
+INPUT_DIR=/data/test_assets OUTPUT_DIR=/data/test_results \
+MODEL_BACKEND=local_gemma4_multimodal \
+MODEL_PATH=/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8 \
 bash scripts/dlc/submit_probe.sh --dry-run
 ```
 

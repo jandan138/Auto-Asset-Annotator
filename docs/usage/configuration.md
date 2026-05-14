@@ -40,9 +40,10 @@ prompts:
 
 ## `model` 段
 
-`model.backend` 控制推理实现。目前有两种取值：
+`model.backend` 控制推理实现。目前有三种取值：
 
 - `local_hf`：本地 Hugging Face/Qwen-VL 推理。
+- `local_gemma4_multimodal`：本地 Gemma4 image-text 推理，使用独立 Gemma4 processor 链路。
 - `openai_compatible`：远程 OpenAI-compatible Chat Completions 多模态推理。
 
 checked-in 默认配置使用 `local_hf`，这样仓库在未改动配置时仍保持本地可运行。
@@ -66,16 +67,38 @@ model:
 
 这里的 `api_base_url` 必须替换成真实 host，并且环境中必须存在 `NEWAPI_API_KEY`；只配置其中一个都不能运行 API 后端。不要把真实 API key 写入 `config/config.yaml`。
 
+如果要切换到 Gemma4 本地多模态路径，可把 `model` 段改成下面这样：
+
+```yaml
+model:
+  backend: "local_gemma4_multimodal"
+  name: "/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8"
+  api_base_url: null
+  api_key_env: "NEWAPI_API_KEY"
+  api_timeout_seconds: 120
+  api_max_retries: 2
+  device_map: "auto"
+  dtype: "bfloat16"
+  attn_implementation: "eager"
+  temperature: 0.1
+  max_new_tokens: 2048
+```
+
+Gemma4 会加载本地大模型。未明确做 live smoke/probe 时，不要用这个配置启动真实标注命令。
+
+Gemma4 backend 需要支持 Gemma4 多模态类的 Transformers 版本；本仓库依赖下限是 `transformers>=5.5.0`。如果运行环境缺少这些类，backend 会在加载前报出当前安装的 Transformers 版本。
+
 ### `model.name`
 
 模型名称或本地模型路径。
 
 - 在 `local_hf` 下，它是本地权重目录。
+- 在 `local_gemma4_multimodal` 下，它是 Gemma4 base 模型 release 目录。
 - 在 `openai_compatible` 下，它是远程模型名，例如 `gemini-2.5-flash-image`。
 
 ### `model.backend`
 
-模型后端选择。checked-in 默认值是 `local_hf`；文档中的 `openai_compatible` 配置是显式 API 示例。
+模型后端选择。checked-in 默认值是 `local_hf`；文档中的 `openai_compatible` 和 `local_gemma4_multimodal` 配置都是显式示例。
 
 ### `model.api_base_url`
 
@@ -122,6 +145,24 @@ API 请求最大重试次数。当前实现会对部分瞬时 HTTP/网络错误�
 ### API 后端补充说明
 
 `openai_compatible` 后端会把 `AnnotationPipeline` 生成的本地图像路径编码成 data URL，再按 OpenAI-compatible 消息格式发送给远程接口。除 `backend`、`name`、`api_base_url`、`api_key_env`、`api_timeout_seconds`、`api_max_retries`、`temperature`、`max_new_tokens` 外，其余 `model` 字段都应视为本地推理配置。
+
+### Gemma4 后端补充说明
+
+`local_gemma4_multimodal` 后端会把 `AnnotationPipeline` 生成的 `image_url` blocks 转换成 Hugging Face Gemma4 的 `image` blocks，并让 processor 负责 token/media 对齐。它不复用 `local_hf`，因为 `local_hf` 是 Qwen 风格视觉预处理路径。
+
+Gemma4 base 模型固定路径：
+
+```text
+/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8
+```
+
+Genesis-LLM adapter 固定路径：
+
+```text
+/cpfs/user/zhuzihou/models/gemma4/adapters/genesis-llm-fullscale-v0-gpu2-seed42-epoch3
+```
+
+默认不要启用 Genesis adapter；它需要在 Gemma4 base 通过 live smoke 后再做 A/B 对比。
 
 ## `data` 段
 

@@ -564,6 +564,95 @@ class TestDLCScripts(unittest.TestCase):
         self.assertIn("annotate_probe", result.stdout)
         self.assertIn("--asset_list_file", result.stdout)
 
+    def test_submit_probe_supports_gemma4_backend_dry_run(self):
+        with tempfile.NamedTemporaryFile("w", delete=False) as f:
+            f.write("chair/abc123\n")
+            asset_list = f.name
+        self.addCleanup(lambda: os.path.exists(asset_list) and os.remove(asset_list))
+
+        env = os.environ.copy()
+        env.update(
+            {
+                "MODEL_BACKEND": "local_gemma4_multimodal",
+                "MODEL_PATH": "/cpfs/user/zhuzihou/models/gemma4/current",
+                "ASSET_LIST_FILE": asset_list,
+            }
+        )
+
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "submit_probe.sh"), "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env=env,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("MODEL_BACKEND=local_gemma4_multimodal", result.stdout)
+        self.assertIn("--model_backend local_gemma4_multimodal", result.stdout)
+        self.assertIn("--model_path /cpfs/user/zhuzihou/models/gemma4/current", result.stdout)
+        self.assertIn("--asset_list_file", result.stdout)
+
+    def test_submit_probe_rejects_gemma4_without_model_path(self):
+        with tempfile.NamedTemporaryFile("w", delete=False) as f:
+            f.write("chair/abc123\n")
+            asset_list = f.name
+        self.addCleanup(lambda: os.path.exists(asset_list) and os.remove(asset_list))
+
+        env = os.environ.copy()
+        env.update(
+            {
+                "MODEL_BACKEND": "local_gemma4_multimodal",
+                "ASSET_LIST_FILE": asset_list,
+            }
+        )
+        env.pop("MODEL_PATH", None)
+
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "submit_probe.sh"), "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env=env,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MODEL_PATH is required", result.stderr)
+
+    def test_submit_probe_enforced_model_flags_win_over_extra_main_args(self):
+        with tempfile.NamedTemporaryFile("w", delete=False) as f:
+            f.write("chair/abc123\n")
+            asset_list = f.name
+        self.addCleanup(lambda: os.path.exists(asset_list) and os.remove(asset_list))
+
+        env = os.environ.copy()
+        env.update(
+            {
+                "MODEL_BACKEND": "local_gemma4_multimodal",
+                "MODEL_PATH": "/cpfs/user/zhuzihou/models/gemma4/current",
+                "ASSET_LIST_FILE": asset_list,
+                "EXTRA_MAIN_ARGS": "--model_backend local_hf --model_path /bad/model",
+            }
+        )
+
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "submit_probe.sh"), "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env=env,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertLess(
+            result.stdout.find("--model_backend local_hf"),
+            result.stdout.rfind("--model_backend local_gemma4_multimodal"),
+        )
+        self.assertLess(
+            result.stdout.find("--model_path /bad/model"),
+            result.stdout.rfind("--model_path /cpfs/user/zhuzihou/models/gemma4/current"),
+        )
+
     def test_submit_probe_requires_explicit_backend(self):
         with tempfile.NamedTemporaryFile("w", delete=False) as f:
             f.write("chair/abc123\n")
@@ -598,6 +687,80 @@ class TestDLCScripts(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("requires ASSET_LIST_FILE", result.stderr)
+
+    def test_python_runtime_rejects_missing_gemma4_model_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code_root = Path(tmp)
+            fake_repo_package = code_root / "auto_asset_annotator"
+            fake_repo_package.mkdir()
+            (fake_repo_package / "__init__.py").write_text("")
+
+            fake_python = code_root / ".venv_dlc" / "bin" / "python"
+            fake_python.parent.mkdir(parents=True)
+            fake_python.write_text(
+                '#!/bin/bash\nif [ "$1" = "-c" ]; then exit 0; fi\nexit 0\n'
+            )
+            fake_python.chmod(0o755)
+
+            env = os.environ.copy()
+            env["DLC_CODE_ROOT"] = str(code_root)
+            env["MODEL_BACKEND"] = "local_gemma4_multimodal"
+            env["MODEL_PATH"] = "/tmp/does-not-exist-gemma4"
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(SCRIPTS_DIR / "python_runtime.sh"),
+                    "-m",
+                    "auto_asset_annotator.main",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=REPO_ROOT,
+                env=env,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MODEL_PATH does not exist", result.stderr)
+
+    def test_python_runtime_rejects_cli_only_missing_gemma4_model_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code_root = Path(tmp)
+            fake_repo_package = code_root / "auto_asset_annotator"
+            fake_repo_package.mkdir()
+            (fake_repo_package / "__init__.py").write_text("")
+
+            fake_python = code_root / ".venv_dlc" / "bin" / "python"
+            fake_python.parent.mkdir(parents=True)
+            fake_python.write_text(
+                '#!/bin/bash\nif [ "$1" = "-c" ]; then exit 0; fi\nexit 0\n'
+            )
+            fake_python.chmod(0o755)
+
+            env = os.environ.copy()
+            env["DLC_CODE_ROOT"] = str(code_root)
+            env.pop("MODEL_BACKEND", None)
+            env.pop("MODEL_PATH", None)
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(SCRIPTS_DIR / "python_runtime.sh"),
+                    "-m",
+                    "auto_asset_annotator.main",
+                    "--model_backend",
+                    "local_gemma4_multimodal",
+                    "--model_path",
+                    "/tmp/does-not-exist-gemma4",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=REPO_ROOT,
+                env=env,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MODEL_PATH does not exist", result.stderr)
 
     def test_run_task_named_mode_forwards_supported_env_vars_as_cli_flags(self):
         with tempfile.TemporaryDirectory() as tmp:

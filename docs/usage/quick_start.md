@@ -2,9 +2,10 @@
 
 本页展示当前默认用法，适合首次确认安装、目录结构和输出位置是否正确。
 
-当前仓库支持两种运行方式：
+当前仓库支持三种运行方式：
 
 - `local_hf`：本地加载 Qwen-VL 权重。
+- `local_gemma4_multimodal`：本地加载 Gemma4 image-text 权重。
 - `openai_compatible`：远程调用 OpenAI-compatible 多模态接口，配置示例使用 `gemini-2.5-flash-image`。
 
 ## 1. 准备输入目录
@@ -61,6 +62,19 @@ python -m auto_asset_annotator.main \
 ```
 
 如果要切回本地推理，只需把 `model.backend` 改成 `local_hf`，并把 `model.name` 指向本地权重目录。`device_map`、`dtype`、`attn_implementation` 仅在本地后端生效，API 后端会忽略这些字段。
+
+如果要做 Gemma4 本地多模态 probe，显式指定独立 backend 和固定 release 路径：
+
+```bash
+python -m auto_asset_annotator.main \
+  --model_backend local_gemma4_multimodal \
+  --model_path /cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8 \
+  --asset_list_file archive/temp_lists/probe_assets.txt \
+  --input_dir ./test_data \
+  --output_dir ./test_output
+```
+
+这条命令会加载大模型，只有明确做 live smoke/probe 时才运行。
 
 ## 3. 查看输出
 

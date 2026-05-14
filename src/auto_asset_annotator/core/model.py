@@ -149,6 +149,15 @@ class LocalHFEngine:  # 定义 LocalHFEngine 类，用于封装本地模型操�
 def build_model_engine(config: ModelConfig) -> BaseModelEngine:
     if config.backend == "local_hf":
         return LocalHFEngine(config)
+    if config.backend == "local_gemma4_multimodal":
+        try:
+            from .gemma4_model import LocalGemma4MultimodalEngine
+        except ModuleNotFoundError as exc:
+            raise ValueError(
+                "local_gemma4_multimodal backend is not available in this installation"
+            ) from exc
+
+        return LocalGemma4MultimodalEngine(config)
     if config.backend == "openai_compatible":
         try:
             from .api_model import OpenAICompatibleAPIEngine

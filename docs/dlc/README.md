@@ -33,6 +33,7 @@ Direct `run_task.sh` named modes (`annotate`, `classify`, `extract`, `custom`) s
 - Confirm `INPUT_DIR` and `OUTPUT_DIR` point to DLC-accessible paths if you override them
 - Confirm the selected backend is intentional:
   `local_hf`: local model path or config-backed model must exist in the worker image
+  `local_gemma4_multimodal`: `MODEL_PATH` is required, must point to a DLC-visible Gemma4 release path, and dry-run output must show both `--model_backend local_gemma4_multimodal` and `--model_path ...`
   `openai_compatible`: both `--api_base_url` and `--api_key_env` must resolve, and the named key must be non-empty in the runtime environment
 - Run a dry-run wrapper command before real submission
 
@@ -108,6 +109,13 @@ DLC_PROFILE=local_hf_default TOTAL=1 NAME=local_probe \
 ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt \
 MODEL_BACKEND=local_hf MODEL_PATH=/path/to/local/model \
 bash scripts/dlc/submit_probe.sh --dry-run
+
+# Gemma4 local multimodal probe (dry-run first)
+DLC_PROFILE=local_hf_default TOTAL=1 NAME=gemma4_probe \
+ASSET_LIST_FILE=archive/temp_lists/probe_assets.txt \
+MODEL_BACKEND=local_gemma4_multimodal \
+MODEL_PATH=/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8 \
+bash scripts/dlc/submit_probe.sh --dry-run
 ```
 
 The real submission path is the same command without `--dry-run`.
@@ -143,11 +151,17 @@ Use `--dry-run` first on every rerun. Only fall back to raw `submit_batch.py` wh
 
 ## Backend Notes
 
-`local_hf` and `openai_compatible` use the same chunk submission chain but have different runtime requirements.
+`local_hf`, `local_gemma4_multimodal`, and `openai_compatible` use the same chunk submission chain but have different runtime requirements.
 
 `local_hf`:
 - Requires a valid model path or config-backed model name in the worker environment
 - Uses local GPU memory and the `local_hf_default` or `local_hf_heavy` profile in most cases
+
+`local_gemma4_multimodal`:
+- Requires explicit `MODEL_PATH`; the probe wrapper rejects missing Gemma4 paths
+- Requires a Gemma4-capable Transformers runtime and DLC visibility of `/cpfs/user/zhuzihou/models/gemma4/...`
+- Uses local GPU memory and starts with the `local_hf_default` profile for tiny probes
+- Dry-run output must include both `--model_backend local_gemma4_multimodal` and `--model_path <pinned-release-path>`
 
 `openai_compatible`:
 - Sends images to a remote chat-completions-compatible endpoint

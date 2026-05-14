@@ -92,3 +92,27 @@
 - 返回值仍然是字符串
 - `extract` / `json` prompt 仍能走当前解析链路
 - 未显式要求时，不要运行重型全量标注命令来验证
+
+## Gemma4 接入记录
+
+Gemma4 不走 `local_hf`。仓库为它保留单独的 `local_gemma4_multimodal` backend，原因是：
+
+- `local_hf` 的推理链路依赖 `qwen_vl_utils.process_vision_info()`
+- Gemma4 的 Hugging Face 多模态模板使用 `{"type": "image", "image": ...}` content block
+- 当前 pipeline 仍然输出 `{"type": "image_url", "image": ...}`，转换应放在 Gemma4 engine 内，不能改 pipeline 以免影响 API backend
+
+Gemma4 base model 已物化到固定 release 路径：
+
+```text
+/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8
+```
+
+Gemma4 在 live smoke 和质量 gate 通过前仍然只应作为 probe 路径。通过这些 gate 后，获准的生产任务应引用这个不可变 release 路径；`/cpfs/user/zhuzihou/models/gemma4/current` 只适合手动调试或临时 probe。
+
+Genesis-LLM 的 LoRA adapter 已单独放在：
+
+```text
+/cpfs/user/zhuzihou/models/gemma4/adapters/genesis-llm-fullscale-v0-gpu2-seed42-epoch3
+```
+
+默认不要启用该 adapter。它来自 Genesis-LLM 的 text-to-physics 训练链路，不是经过验证的四视角图片资产标注 adapter。只有当 Gemma4 base live smoke 通过后，才把它作为 A/B 对照候选。

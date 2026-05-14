@@ -7,7 +7,7 @@
 当前代码中的主流程是：`CLI -> Config -> ModelEngine -> AnnotationPipeline -> parsed JSON output`
 
 1. `src/auto_asset_annotator/main.py` 解析 CLI 参数并加载 `config/config.yaml`。
-2. `build_model_engine()` 根据配置选择本地 `local_hf` 或远程 `openai_compatible` 后端并执行推理。
+2. `build_model_engine()` 根据配置选择本地 `local_hf`、本地 `local_gemma4_multimodal` 或远程 `openai_compatible` 后端并执行推理。
 3. `AnnotationPipeline` 发现资产图片、构造 prompt、调用模型、解析返回结果。
 4. `main.py` 将最终结果保存为 `{output_dir}/{category}/{asset_id}_annotation.json`。
 

@@ -11,6 +11,7 @@ src/auto_asset_annotator/
 │   └── settings.py          # Config / ModelConfig / DataConfig / ProcessingConfig / PromptConfig
 ├── core/
 │   ├── api_model.py         # OpenAI-compatible API backend：转换消息并发送 chat completions 请求
+│   ├── gemma4_model.py      # Gemma4 本地多模态 backend：转换 image_url blocks 并调用 Gemma4 processor
 │   ├── model.py             # Backend factory、LocalHFEngine 与兼容别名 ModelEngine
 │   ├── pipeline.py          # AnnotationPipeline：组装消息、调用推理、解析结构化文本
 │   └── prompt.py            # PromptFactory 与 SUPPORTED_PROMPT_TYPES
@@ -25,7 +26,7 @@ src/auto_asset_annotator/
 
 - 解析 CLI 参数：`--config`、`--input_dir`、`--output_dir`、`--model_path`、`--model_backend`、`--api_base_url`、`--api_key_env`、`--prompt_type`、`--asset_list_file`、`--force`、`--retry_incomplete`、`--num_chunks`、`--chunk_index`
 - 通过 `load_config()` 读取 `config/config.yaml`，再用 CLI 参数覆盖配置值
-- 通过 `build_model_engine()` 选择 `local_hf` 或 `openai_compatible` 后端，再初始化 `AnnotationPipeline`
+- 通过 `build_model_engine()` 选择 `local_hf`、`local_gemma4_multimodal` 或 `openai_compatible` 后端，再初始化 `AnnotationPipeline`
 - 从 `asset_list_file` 或 `list_assets()` 获取待处理资产
 - 在输出目录下写出 `{output_dir}/{category}/{asset_id}_annotation.json`
 
@@ -45,8 +46,14 @@ src/auto_asset_annotator/
 
 - `BaseModelEngine` 定义流水线依赖的统一 `inference()` 契约
 - `LocalHFEngine` 保留原有本地 Hugging Face 推理逻辑
-- `build_model_engine()` 根据 `ModelConfig.backend` 返回本地或 API 引擎
+- `build_model_engine()` 根据 `ModelConfig.backend` 返回 Qwen 本地、Gemma4 本地或 API 引擎
 - `ModelEngine` 仍保留为 `LocalHFEngine` 的兼容别名
+
+### `core/gemma4_model.py`
+
+- `LocalGemma4MultimodalEngine` 负责 Gemma4 image-text 本地推理
+- 将 pipeline 的 `image_url` content blocks 转换为 Hugging Face Gemma4 的 `image` blocks
+- 使用 Gemma4 processor 的 tokenized chat template 负责 token/media 对齐
 
 ### `core/pipeline.py`
 

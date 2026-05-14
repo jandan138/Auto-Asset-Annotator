@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The repository now also supports an `openai_compatible` multimodal API backend. Avoid running live API-backed annotation commands unless explicitly told to do so, because they consume remote quota and require a real API key in the environment.
 
+The repository also has a `local_gemma4_multimodal` backend for Gemma4 image-text checkpoints. Treat Gemma4 loading the same way as other local VLM loading: do not run live model-load or annotation commands unless explicitly told to do so.
+
 ## Commands
 
 ### Installation
@@ -44,6 +46,13 @@ python -m auto_asset_annotator.main \
     --input_dir /path/to/assets --output_dir /path/to/results
 
 # Exporting only NEWAPI_API_KEY is not enough if api_base_url is still a placeholder
+
+# Gemma4 local multimodal example: heavy model load, run only when explicitly requested
+python -m auto_asset_annotator.main \
+    --model_backend local_gemma4_multimodal \
+    --model_path /cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8 \
+    --asset_list_file archive/temp_lists/probe_assets.txt \
+    --input_dir /path/to/assets --output_dir /path/to/results
 
 # Override prompt type
 python -m auto_asset_annotator.main --prompt_type classify_object_category_prompt --input_dir /data/assets --output_dir /data/results
@@ -164,10 +173,28 @@ src/auto_asset_annotator/
 
 1. `get_asset_images()` resolves view patterns from `config.data.views` (e.g., `front: ["front.png", "0.png"]`), falling back to all sorted images in the asset directory if no named views are found.
 2. `PromptFactory.compose_user_prompt()` selects the prompt template by `prompt_type`.
-3. `build_model_engine()` selects either the local Hugging Face engine or the `openai_compatible` API engine.
+3. `build_model_engine()` selects `local_hf`, `local_gemma4_multimodal`, or the `openai_compatible` API engine.
 4. For `extract_*` and `json`-named prompts, the model is asked to return structured text. `parse_structured_text_enhanced()` then extracts key-value pairs (Category, Description, Material, Dimensions, Mass, Placement), and `main.py` writes the parsed result to a JSON file. On parse failure, `{"raw_output": <text>}` is saved.
 
 For the `openai_compatible` backend, `core/api_model.py` converts local image paths to data URLs and POSTs them to `/v1/chat/completions`. `device_map`, `dtype`, and `attn_implementation` remain in `ModelConfig` for `local_hf` only and are ignored by the API path.
+
+For the `local_gemma4_multimodal` backend, `core/gemma4_model.py` converts pipeline `image_url` blocks into Hugging Face Gemma4 `image` blocks and lets the Gemma4 processor own token/media alignment. It is intentionally separate from `local_hf` because the Qwen local path uses Qwen-specific vision preprocessing.
+
+Gemma4 requires `transformers>=5.5.0`. If the runtime Transformers build does not expose the Gemma4 multimodal model classes, the backend should fail before weight loading and include the installed Transformers version in the error.
+
+Gemma4 base model files are materialized outside the repository at:
+
+```
+/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8
+```
+
+The Genesis-LLM adapter is stored separately at:
+
+```
+/cpfs/user/zhuzihou/models/gemma4/adapters/genesis-llm-fullscale-v0-gpu2-seed42-epoch3
+```
+
+Do not enable the Genesis adapter by default for asset annotation. Compare it against Gemma4 base only after the base backend passes a live smoke probe.
 
 ### Retry behavior
 
@@ -223,8 +250,8 @@ input_dir/
 ## Configuration (`config/config.yaml`)
 
 Key fields to know:
-- `model.backend`: `"local_hf"` for on-box inference or `"openai_compatible"` for remote Chat Completions
-- `model.name`: local model path for `local_hf`, or remote model name such as `gemini-2.5-flash-image` for `openai_compatible`
+- `model.backend`: `"local_hf"` for Qwen-style on-box inference, `"local_gemma4_multimodal"` for Gemma4 image-text inference, or `"openai_compatible"` for remote Chat Completions
+- `model.name`: local model path for `local_hf`, Gemma4 base release path for `local_gemma4_multimodal`, or remote model name such as `gemini-2.5-flash-image` for `openai_compatible`
 - `model.api_base_url` / `model.api_key_env`: required for `openai_compatible`
 - `model.attn_implementation`: the checked-in `config/config.yaml` currently uses `"eager"` (avoids flash-attn dependency); `settings.py` still keeps `"flash_attention_2"` as the code-level fallback for `local_hf`
 - `model.max_new_tokens`: the checked-in `config/config.yaml` currently uses `2048`; `settings.py` still keeps `512` as the code-level fallback

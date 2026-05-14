@@ -165,7 +165,7 @@ The implementation must:
 - raise a clear `ValueError` when neither class is available
 - load `AutoProcessor`
 - convert pipeline messages from `image_url` to Gemma4 `image`
-- put images before text
+- preserve pipeline content order while converting image blocks in place
 - call processor tokenized chat template
 - trim prompt tokens before decoding generated text
 
