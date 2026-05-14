@@ -10,6 +10,8 @@ submit_*.sh -> submit_batch.py -> launch_job.sh -> run_task.sh -> python_runtime
 
 The Gemma4 path now has a maintained GRScenes reannotation wrapper, explicit worker setup/env forwarding, dry-run-by-default submission semantics, and output-directory guards to keep new Gemma4 output out of the older Qwen result folders.
 
+For the operator-facing current state and exact next commands, see `2026-05-14_gemma4_dlc_reannotation_status.md`.
+
 ## What Changed
 
 - Added `scripts/dlc/submit_gemma4_reannotate.sh`.

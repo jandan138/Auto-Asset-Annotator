@@ -14,6 +14,25 @@ run_task.sh <chunk_id> <chunk_total> [extra main.py flags...]
 
 Use the wrapper scripts for routine operations. Use `submit_batch.py` directly only when you need a non-standard batch shape.
 
+## Current Gemma4 Status
+
+As of 2026-05-14, Gemma4 reannotation for the GRScenes test0 dataset is ready for a one-asset real DLC probe, but the full real DLC run has not been submitted.
+
+Current target:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+```
+
+Current preflight:
+
+- `53,167` `category/asset_id` directories
+- `0` assets missing `front.png`, `left.png`, `back.png`, or `right.png`
+- old Qwen outputs remain in `./output` and `./output_reannotate`
+- new Gemma4 output must go to `annotation_runs/<run_id>/output`
+
+The concise status and next commands are in `docs/changes/2026-05-14_gemma4_dlc_reannotation_status.md`.
+
 ## Supported Workflows
 
 - Full annotation batch: `bash scripts/dlc/submit_annotate.sh`
