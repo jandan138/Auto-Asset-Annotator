@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-14
 **Dataset**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
-**Status**: One-asset real DLC probe submitted and currently queuing; full real submission has not been run.
+**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed locally. Replacement probe is pending after verification.
 
 ## Plain Status
 
@@ -11,7 +11,7 @@ The repository can now construct and submit a Gemma4 DLC batch command without p
 ```text
 Job ID:   dlc1i6qia2inzfmv
 Job name: gemma4_grscenes_probe_0_1
-Status:   Queuing
+Status:   Failed
 Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260514T071350Z_gemma4_probe_v1
 ```
 
@@ -60,6 +60,8 @@ DLC_WORKER_SETUP_SCRIPT=/cpfs/user/zhuzihou/conda-managed/bin/use-gcc-toolchain-
 
 `launch_job.sh` now forwards these values into the remote worker command. The repository `.venv_dlc` runtime is still not enough for Gemma4 multimodal inference.
 
+Important runtime packaging detail: this repository uses a `src/auto_asset_annotator` layout. The Genesis QLoRA env does not have `auto_asset_annotator` installed as an editable package, so the DLC runtime must add both `$CODE_ROOT/src` and `$CODE_ROOT` to `PYTHONPATH`.
+
 ## Safety Gates Now In Code
 
 - `submit_batch.py` defaults to dry-run.
@@ -97,7 +99,7 @@ TOTAL=1 NAME=gemma4_grscenes_probe \
 bash scripts/dlc/submit_gemma4_reannotate.sh --submit
 ```
 
-Observed DLC state after submission:
+Observed DLC state after submission, while queued:
 
 ```text
 Status: Queuing
@@ -108,6 +110,52 @@ GmtSubmittedTime: 2026-05-14T07:14:18Z
 ```
 
 At this stage no output JSON is expected because the worker has not started. The output directory was checked and had no files while the job was still queuing.
+
+Final observed DLC state:
+
+```text
+Status: Failed
+ReasonCode: JobFailed
+GmtFailedTime: 2026-05-14T15:24:41Z
+PodId: dlc1i6qia2inzfmv-master-0
+Pod status: Failed
+```
+
+Pod log:
+
+```text
+ERROR: Failed to import auto_asset_annotator with /cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python from /cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator
+```
+
+Root cause:
+
+```text
+python_runtime.sh set PYTHONPATH to $CODE_ROOT only.
+The package lives at $CODE_ROOT/src/auto_asset_annotator.
+The Genesis QLoRA env is valid for Gemma4, but it does not have this repository installed as an editable package.
+Therefore the runtime preflight import failed before model loading or asset processing started.
+```
+
+Fix:
+
+```text
+scripts/dlc/python_runtime.sh now prepends $CODE_ROOT/src:$CODE_ROOT to PYTHONPATH.
+```
+
+Local verification of the failed layer after the fix:
+
+```bash
+AUTO_ASSET_VENV=/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310 \
+DLC_CODE_ROOT=/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator \
+bash scripts/dlc/python_runtime.sh -c 'import sys, auto_asset_annotator; print(sys.executable); print(auto_asset_annotator.__file__)'
+```
+
+Expected output includes:
+
+```text
+/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/bin/python
+/cpfs/shared/simulation/zhuzihou/dev/Auto-Asset-Annotator/src/auto_asset_annotator/__init__.py
+```
 
 Probe logs are under:
 
@@ -186,3 +234,4 @@ bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
 - Markdown fence check and `git diff --check` passed before commit `8b58a75`.
 - Dry-run output showed `annotation_runs/<run_id>/output`, `DLC_WORKER_SETUP_SCRIPT`, `AUTO_ASSET_VENV`, `MODEL_BACKEND=local_gemma4_multimodal`, `MODEL_PATH`, and `UNSLOTH_COMPILE_LOCATION`.
 - Protected `EXTRA_MAIN_ARGS='--output_dir ./output'` failed before launcher execution.
+- Failed probe diagnosis captured `pod_master_logs_failed_investigation.txt`, `pod_master_events_failed_investigation.txt`, and local reproduction of the import failure.

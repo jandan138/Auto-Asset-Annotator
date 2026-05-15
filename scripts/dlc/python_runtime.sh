@@ -34,10 +34,11 @@ if [ ! -x "$PYTHON_BIN" ]; then
 fi
 
 export PYTHONUNBUFFERED=1
+CODE_SRC="$CODE_ROOT/src"
 if [ -n "${PYTHONPATH:-}" ]; then
-    export PYTHONPATH="$CODE_ROOT:$PYTHONPATH"
+    export PYTHONPATH="$CODE_SRC:$CODE_ROOT:$PYTHONPATH"
 else
-    export PYTHONPATH="$CODE_ROOT"
+    export PYTHONPATH="$CODE_SRC:$CODE_ROOT"
 fi
 
 cd "$CODE_ROOT"

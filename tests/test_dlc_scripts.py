@@ -714,6 +714,42 @@ class TestDLCScripts(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("auto-asset-venv-python -m auto_asset_annotator.main --help", result.stdout)
 
+    def test_python_runtime_adds_src_layout_to_pythonpath(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code_root = Path(tmp) / "repo"
+            package_root = code_root / "src" / "auto_asset_annotator"
+            package_root.mkdir(parents=True)
+            (package_root / "__init__.py").write_text("SRC_LAYOUT_MARKER = 'ok'\n")
+
+            auto_asset_venv = Path(tmp) / "auto_asset_venv"
+            fake_python = auto_asset_venv / "bin" / "python"
+            fake_python.parent.mkdir(parents=True)
+            fake_python.symlink_to(sys.executable)
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "DLC_CODE_ROOT": str(code_root),
+                    "AUTO_ASSET_VENV": str(auto_asset_venv),
+                }
+            )
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(SCRIPTS_DIR / "python_runtime.sh"),
+                    "-c",
+                    "import auto_asset_annotator; print(auto_asset_annotator.SRC_LAYOUT_MARKER)",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=REPO_ROOT,
+                env=env,
+            )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("ok", result.stdout)
+
     def test_run_task_batch_mode_forwards_main_flags_after_chunk_args(self):
         with tempfile.TemporaryDirectory() as tmp:
             code_root = Path(tmp)
