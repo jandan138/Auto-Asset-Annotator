@@ -16,7 +16,7 @@ Use the wrapper scripts for routine operations. Use `submit_batch.py` directly o
 
 ## Current Gemma4 Status
 
-As of 2026-05-15, Gemma4 reannotation for the GRScenes test0 dataset has two real one-asset DLC probe failures diagnosed:
+As of 2026-05-15, Gemma4 reannotation for the GRScenes test0 dataset has two real one-asset DLC probe failures diagnosed and a third one-asset probe submitted with the corrected Genesis-LLM image:
 
 - `dlc1i6qia2inzfmv` failed before model loading because the remote runtime did not include `$CODE_ROOT/src` on `PYTHONPATH`.
 - `dlc14l1zbec0ofk2` reached model initialization and failed with `Failed to load model: No module named 'natsort'`.
@@ -36,6 +36,15 @@ The Gemma4 wrapper now defaults to the Genesis-LLM successful QLoRA image and pr
 
 ```text
 pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang
+```
+
+Current v3 probe:
+
+```text
+Job ID:   dlc10pg3d6j8izbv
+Job name: gemma4_grscenes_probe_v3_0_1
+Status:   EnvPreparing
+Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3
 ```
 
 The full real DLC run has not been submitted.

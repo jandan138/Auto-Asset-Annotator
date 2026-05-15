@@ -2,11 +2,21 @@
 
 **Date**: 2026-05-15
 **Dataset**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
-**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image and preflights `natsort`.
+**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image, preflights `natsort`, and v3 has been submitted successfully.
 
 ## Plain Status
 
-The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current replacement one-asset probe reached model initialization and then failed:
+The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current v3 one-asset probe uses the Genesis-LLM successful image and has been submitted:
+
+```text
+Job ID:   dlc10pg3d6j8izbv
+Job name: gemma4_grscenes_probe_v3_0_1
+Status:   EnvPreparing
+Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3
+Image:    pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang
+```
+
+The v2 replacement one-asset probe reached model initialization and then failed:
 
 ```text
 Job ID:   dlc14l1zbec0ofk2
@@ -305,6 +315,62 @@ find /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel
 ```
 
 Do not resubmit with this exact job name. Use a new `RUN_ID` and `NAME`.
+
+## Third Submitted Probe Record
+
+Probe asset:
+
+```text
+basket/6c68230d67112b1dfd2bd7fa9322c756
+```
+
+Probe run paths:
+
+```text
+RUN_ID=20260515T012454Z_gemma4_probe_v3
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3
+ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/input/one_asset.txt
+OUTPUT_DIR=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/output
+```
+
+Submission command used after switching to the Genesis-LLM image and making `natsort` worker-visible in the conda env:
+
+```bash
+DLC_WORKSPACE_ID=270969 \
+DLC_RESOURCE_ID=quota1r947pmazvk \
+RUN_ID=20260515T012454Z_gemma4_probe_v3 \
+ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/input/one_asset.txt \
+TOTAL=1 NAME=gemma4_grscenes_probe_v3 \
+bash scripts/dlc/submit_gemma4_reannotate.sh --submit
+```
+
+Observed DLC state after submission:
+
+```text
+Job ID: dlc10pg3d6j8izbv
+Status: EnvPreparing
+GmtCreateTime: 2026-05-15T01:25:27Z
+GmtSubmittedTime: 2026-05-15T01:25:32Z
+```
+
+The current output directory check found no files immediately after submission, which is expected while the worker is still preparing:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/output
+```
+
+Probe logs are under:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/logs
+```
+
+Monitor with:
+
+```bash
+./dlc get job dlc10pg3d6j8izbv
+find /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/output -maxdepth 4 -type f -print
+```
 
 ## Commands For A Future Probe
 
