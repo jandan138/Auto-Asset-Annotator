@@ -1,20 +1,33 @@
 # GRScenes test0 标注前调研记录
 
 **日期**: 2026-05-14
-**状态**: 调研完成，Gemma4 全量重标注入口已接入 dry-run；尚未执行全量真实提交
+**状态**: 调研完成；后续 Gemma4 全量 DLC 重标注已完成，并已通过受控同步工具写回目标数据集 metadata
 **目标数据集**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
 
 ## 结论
 
 目标数据集已经包含每个资产自己的扁平标注文件，但核心标注字段为空。旧仓库 `output/` 中的 Qwen 小模型结果质量不足，当前决策是使用 Gemma4 对目标数据集做全量重新标注，同时保留旧输出用于对比。
 
-推荐流程：
+推荐流程执行结果：
 
-1. 生成显式 `category/asset_id` 全量 asset list。
-2. 使用 `scripts/dlc/submit_gemma4_reannotate.sh --dry-run` 校验 DLC worker command。
-3. 先跑单资产真实 DLC probe，确认 worker runtime、日志和 JSON 输出。
-4. 再跑小批量多类别 probe。
-5. 最后全量提交，输出只写入新的 `annotation_runs/<run_id>/output`，不污染 `output/`、`output_reannotate/` 或数据集原目录。
+1. 已生成显式 `category/asset_id` 全量 asset list，共 `53,167` 条。
+2. 已使用 `scripts/dlc/submit_gemma4_reannotate.sh --dry-run` 校验 DLC worker command。
+3. 已完成单资产真实 DLC probe，确认 worker runtime、日志和 JSON 输出。
+4. 已完成小批量多类别 probe。
+5. 已完成全量 DLC run，输出写入新的 `annotation_runs/20260515T015209Z_gemma4_full_v1/output`。
+6. 已使用 `scripts/sync_grscenes_annotations.py` 将语义字段同步回 `GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json`，并在 run 目录下保存 backup/audit。
+
+当前结果摘要：
+
+```text
+DLC chunks: 64 Succeeded, 0 Failed
+Gemma4 output JSON: 53,167
+Dataset target JSON: 53,167
+Post-sync bad_json: 0
+Post-sync uid_or_category_mismatch: 0
+Post-sync empty description/material/dimensions/mass/placement: 0
+Backup files: 53,167
+```
 
 ## 数据集现状
 
@@ -31,7 +44,7 @@
 | `raw_output` 数 | 0 |
 | 至少一个核心字段非空的资产数 | 0 |
 
-所有目标内置标注文件的核心字段当前为空：
+2026-05-14 调研时，所有目标内置标注文件的核心字段为空：
 
 | 字段 | 空值数 |
 |------|------|
@@ -158,9 +171,9 @@ TOTAL=1 NAME=gemma4_grscenes_probe \
 bash scripts/dlc/submit_gemma4_reannotate.sh --submit
 ```
 
-### 5. 同步回目标扁平 JSON（后续独立步骤）
+### 5. 同步回目标扁平 JSON（已完成）
 
-需要一个 dry-run 默认开启、路径可配置的新同步工具，将 staging wrapped output 填回：
+已新增 dry-run 默认开启、路径可配置的同步工具，将 staging wrapped output 填回：
 
 ```text
 GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json
@@ -172,7 +185,19 @@ GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json
 - 非空字段不覆盖，除非显式传入 `--overwrite`。
 - 跳过 `raw_output`。
 - `placement` 从字符串规范化为目标扁平 JSON 中的列表。
-- 输出 JSONL 或 CSV audit manifest，记录 target path、source path、match mode、old values、new values、skip reason。
+- 输出 JSONL audit manifest，记录 target path、source path、old values、new values、skip reason。
+
+实际同步记录：
+
+```text
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
+SOURCE=$RUN_ROOT/output
+TARGET=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+BACKUP=$RUN_ROOT/backups/dataset_annotations_before_sync_20260515T085255Z
+DRY_RUN_AUDIT=$RUN_ROOT/logs/sync_dry_run_audit.jsonl
+APPLY_AUDIT=$RUN_ROOT/logs/sync_apply_audit.jsonl
+APPLY_SUMMARY=$RUN_ROOT/logs/sync_apply_summary.json
+```
 
 ## 必要校验
 
@@ -204,5 +229,5 @@ GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json
 
 - 不建议把 Gemma4 全量重标输出写入旧 `output/`、`output_reannotate/` 或数据集原目录；应使用 `annotation_runs/<run_id>/output`。
 - 不建议直接将 `--output_dir` 指向目标 `GRScenes_assets`。
-- 不建议直接使用现有 `scripts/fill_annotations.py --apply`，因为该脚本目标路径硬编码，且缺少本次所需的完整 preflight、fallback、审计和目标外部路径保护。
+- 不建议直接使用旧 `scripts/fill_annotations.py --apply`，因为该脚本目标路径硬编码。当前应使用 `scripts/sync_grscenes_annotations.py`。
 - 不建议自动跨类别使用 uid fallback，当前数据中已有重复 id 和类别歧义。

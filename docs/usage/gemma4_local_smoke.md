@@ -428,6 +428,12 @@ TOTAL=64 NAME=gemma4_grscenes_full_v1 \
 bash scripts/dlc/submit_gemma4_reannotate.sh --submit
 ```
 
-生产前推荐顺序仍然是：单资产本地 smoke、单资产 DLC probe、小批量多类别 DLC run、全量 run。全量 run 前必须检查 dry-run 输出里包含 `annotation_runs/.../output`，不能指向旧输出目录或数据集原目录。
+生产推荐顺序是：单资产本地 smoke、单资产 DLC probe、小批量多类别 DLC run、全量 run。2026-05-15 的 GRScenes test0 生产 run 已按该顺序完成，run root 为：
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
+```
+
+全量 run 前必须检查 dry-run 输出里包含 `annotation_runs/.../output`，不能指向旧输出目录或数据集原目录。全量输出写入后，如果下游消费 `GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json`，再使用 `scripts/sync_grscenes_annotations.py` 做受控同步、外部备份和 audit。
 
 `submit_gemma4_reannotate.sh` 会拒绝把 `--input_dir`、`--output_dir`、`--asset_list_file`、`--num_chunks`、`--chunk_index`、`--model_backend`、`--model_path` 放进 `EXTRA_MAIN_ARGS`。这些参数由 wrapper 统一生成，避免尾部重复参数覆盖安全输出路径。

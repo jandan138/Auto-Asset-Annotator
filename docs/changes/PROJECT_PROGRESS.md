@@ -1,14 +1,14 @@
 # Auto-Asset-Annotator 项目进度总览
 
-**最后更新**: 2026-05-14
+**最后更新**: 2026-05-15
 
 > 历史记录：主体内容是 2026-03-09 阶段收尾时写下的项目里程碑总览。
 >
-> 当前相关性：用于回顾 2026-03-05 至 2026-03-09 的修复、补标注与字段补全时间线。当前 Gemma4 / DLC 重标注状态见本页顶部“2026-05-14 当前状态”。
+> 当前相关性：用于回顾 2026-03-05 至 2026-03-09 的修复、补标注与字段补全时间线。当前 Gemma4 / DLC 重标注状态见本页顶部“2026-05-15 当前状态”。
 
-## 2026-05-14 当前状态
+## 2026-05-15 当前状态
 
-当前准备对以下数据集用 Gemma4 进行全量重新标注，旧 Qwen 小模型输出只保留做对比，不作为本轮生产结果直接复用：
+已对以下数据集完成 Gemma4 全量重新标注，并已把语义字段同步回目标数据集 metadata。旧 Qwen 小模型输出仍保留做对比，不作为本轮生产结果直接复用：
 
 ```text
 /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
@@ -22,9 +22,13 @@
 | 缺四视角图资产 | 0 |
 | Gemma4 本地单资产 smoke | 已通过 |
 | DLC Gemma4 wrapper dry-run | 已通过 |
-| 真实 DLC 单资产 probe | 已提交，`dlc1i6qia2inzfmv` 当前 Queuing |
-| 全量真实 DLC 提交 | 尚未执行 |
-| 新输出根 | `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/<run_id>/output` |
+| 真实 DLC 单资产 probe | v3 已成功 |
+| 多类别 DLC probe | 已成功，8 个资产 |
+| 全量真实 DLC run | 已完成，64/64 Succeeded |
+| Gemma4 新输出根 | `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/output` |
+| Dataset metadata sync | 已完成，53,167/53,167 更新 |
+| Dataset 后验验证 | bad_json=0，uid/category mismatch=0，五个语义字段空值=0 |
+| Dataset sync backup | `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/backups/dataset_annotations_before_sync_20260515T085255Z` |
 
 当前规范文档：
 
@@ -32,9 +36,10 @@
 |------|------|
 | `2026-05-14_gemma4_dlc_reannotation_status.md` | 当前状态、下一步 probe/full-run 命令、已验证证据 |
 | `2026-05-14_dlc_gemma4_worker_runtime.md` | DLC worker runtime 接入记录和安全门 |
-| `2026-05-14_grscenes-test0-annotation-preflight.md` | GRScenes test0 数据集预检、资产数、输出隔离策略 |
+| `2026-05-14_grscenes-test0-annotation-preflight.md` | GRScenes test0 数据集预检、资产数、输出隔离策略、最终同步结果 |
 | `../dlc/README.md` | DLC 操作手册 |
 | `../usage/gemma4_local_smoke.md` | Gemma4 本地 smoke 和 DLC 批量入口 |
+| `../usage/output_schema.md` | Auto-Asset wrapped output 与 GRScenes metadata 的 schema merge/sync 规则 |
 
 ## 最终状态
 
