@@ -2,21 +2,22 @@
 
 **Date**: 2026-05-15
 **Dataset**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
-**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image, preflights `natsort`, and v3 succeeded with one valid annotation JSON. A later 8-asset multi-category probe succeeded, and the full `53,167`-asset Gemma4 reannotation run has been submitted as 64 DLC chunks into an isolated `annotation_runs` output tree.
+**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image, preflights `natsort`, and v3 succeeded with one valid annotation JSON. A later 8-asset multi-category probe succeeded, and the full `53,167`-asset Gemma4 reannotation run completed as 64 DLC chunks into an isolated `annotation_runs` output tree.
 
 ## Plain Status
 
 The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current state is:
 
 ```text
-Full run:   submitted, in progress
-Chunks:     64 submitted, 0 submission failures
-Snapshot:   4 Running, 60 Queuing, 0 Failed
+Full run:   completed
+Chunks:     64 Succeeded, 0 Failed
+Outputs:    53,167 annotation JSON files
+Validation: 0 bad JSON files, 0 records missing required fields
 Run root:   /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
 Output dir: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/output
 ```
 
-This means submission and initial DLC scheduling succeeded. It does not mean the full annotation pass has completed.
+This means DLC execution and basic output-structure validation completed. It does not mean downstream semantic QA or merge/apply work has been performed.
 
 The v3 one-asset probe uses the Genesis-LLM successful image and succeeded:
 
@@ -560,6 +561,39 @@ rows=64
 Running=4
 Queuing=60
 Failed=0
+```
+
+Final observed status snapshot:
+
+```text
+checked_at=2026-05-15T08:21:56Z
+rows=64
+Succeeded=64
+Failed=0
+Running=0
+Queuing=0
+last_chunk=gemma4_grscenes_full_v1_41_64
+last_job_id=dlc1y0d79m1kokyi
+last_finish_time=2026-05-15T08:19:08Z
+```
+
+Final output count:
+
+```text
+input_assets=53167
+annotation_json_files=53167
+missing_outputs=0
+output_dir_size=31M
+logs_dir_size=5.0M
+```
+
+Final JSON structure validation:
+
+```text
+json_files=53167
+bad_json=0
+missing_required_fields=0
+required_fields=category,description,dimensions,mass,material,placement
 ```
 
 Representative job IDs:

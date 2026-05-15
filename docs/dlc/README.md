@@ -16,7 +16,7 @@ Use the wrapper scripts for routine operations. Use `submit_batch.py` directly o
 
 ## Current Gemma4 Status
 
-As of 2026-05-15, Gemma4 reannotation for the GRScenes test0 dataset has moved from probes to a submitted full 64-way DLC run. The earlier one-asset failures are diagnosed, the corrected Genesis-LLM image has passed one-asset and multi-category probes, and the full run is now queued/running without touching old Qwen outputs:
+As of 2026-05-15, Gemma4 reannotation for the GRScenes test0 dataset has completed a full 64-way DLC run. The earlier one-asset failures are diagnosed, the corrected Genesis-LLM image passed one-asset and multi-category probes, and the full run finished without touching old Qwen outputs:
 
 - `dlc1i6qia2inzfmv` failed before model loading because the remote runtime did not include `$CODE_ROOT/src` on `PYTHONPATH`.
 - `dlc14l1zbec0ofk2` reached model initialization and failed with `Failed to load model: No module named 'natsort'`.
@@ -61,7 +61,7 @@ Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_par
 Output:   8 annotation JSON files across 8 categories
 ```
 
-Full submitted run:
+Full completed run:
 
 ```text
 RUN_ID:      20260515T015209Z_gemma4_full_v1
@@ -81,7 +81,7 @@ logs/job_ids.tsv
 logs/status_latest.tsv
 ```
 
-Initial post-submit DLC status snapshot had `64` submitted chunks, `0` submission failures, `4` `Running`, `60` `Queuing`, and `0` `Failed`. This means the full run has been submitted and is in progress; it does not mean the full annotation has completed.
+Final DLC status snapshot has `64` `Succeeded`, `0` `Failed`, and `0` still running. The output directory contains `53,167` annotation JSON files, matching the `53,167`-asset input list. A full JSON parse and required-field validation found `0` bad JSON files and `0` records missing `category`, `description`, `dimensions`, `mass`, `material`, or `placement`. This is structural validation only; downstream semantic QA and any merge/apply step have not been performed.
 
 Current target:
 
