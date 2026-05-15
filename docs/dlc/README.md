@@ -16,7 +16,16 @@ Use the wrapper scripts for routine operations. Use `submit_batch.py` directly o
 
 ## Current Gemma4 Status
 
-As of 2026-05-14, Gemma4 reannotation for the GRScenes test0 dataset has one real DLC probe submitted and queuing: `dlc1i6qia2inzfmv` / `gemma4_grscenes_probe_0_1`. The full real DLC run has not been submitted.
+As of 2026-05-15, Gemma4 reannotation for the GRScenes test0 dataset has a replacement one-asset real DLC probe submitted after the `src` layout runtime fix:
+
+```text
+Job ID:   dlc14l1zbec0ofk2
+Job name: gemma4_grscenes_probe_v2_0_1
+Status:   EnvPreparing
+Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2
+```
+
+The first probe, `dlc1i6qia2inzfmv` / `gemma4_grscenes_probe_0_1`, failed before model loading because the remote Python runtime had `$CODE_ROOT` on `PYTHONPATH` but not `$CODE_ROOT/src`. The full real DLC run has not been submitted.
 
 Current target:
 
@@ -128,12 +137,12 @@ head "$RUN_ROOT/input/all_assets.txt"
 tail "$RUN_ROOT/input/all_assets.txt"
 ```
 
-Dry-run one explicit probe asset first:
+Dry-run one explicit probe asset first. Use a unique `RUN_ID` and `NAME` for each real submission so job names and output paths stay traceable:
 
 ```bash
-RUN_ID=20260514_gemma4_probe_v1 \
+RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)_gemma4_probe_v3 \
 ASSET_LIST_FILE=/path/to/one_asset.txt \
-TOTAL=1 NAME=gemma4_grscenes_probe \
+TOTAL=1 NAME=gemma4_grscenes_probe_v3 \
 bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
 ```
 
@@ -142,9 +151,9 @@ Then run a one-asset real DLC probe only after reviewing the dry-run:
 ```bash
 DLC_WORKSPACE_ID=270969 \
 DLC_RESOURCE_ID=quota1r947pmazvk \
-RUN_ID=20260514_gemma4_probe_v1 \
+RUN_ID=$RUN_ID \
 ASSET_LIST_FILE=/path/to/one_asset.txt \
-TOTAL=1 NAME=gemma4_grscenes_probe \
+TOTAL=1 NAME=gemma4_grscenes_probe_v3 \
 bash scripts/dlc/submit_gemma4_reannotate.sh --submit
 ```
 

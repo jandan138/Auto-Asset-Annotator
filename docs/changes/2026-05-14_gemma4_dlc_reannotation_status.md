@@ -1,12 +1,21 @@
 # Gemma4 DLC Reannotation Status
 
-**Date**: 2026-05-14
+**Date**: 2026-05-15
 **Dataset**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
-**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed locally. Replacement probe is pending after verification.
+**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe has been submitted successfully and is in DLC environment preparation.
 
 ## Plain Status
 
-The repository can now construct and submit a Gemma4 DLC batch command without polluting old outputs. The submitted one-asset probe is:
+The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current replacement one-asset probe is:
+
+```text
+Job ID:   dlc14l1zbec0ofk2
+Job name: gemma4_grscenes_probe_v2_0_1
+Status:   EnvPreparing
+Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2
+```
+
+The previous one-asset probe failed before model loading because the remote Python runtime could not import this repository's `src` layout:
 
 ```text
 Job ID:   dlc1i6qia2inzfmv
@@ -71,7 +80,7 @@ Important runtime packaging detail: this repository uses a `src/auto_asset_annot
 - Gemma4 reannotation rejects protected `EXTRA_MAIN_ARGS` overrides for input, output, asset list, chunking, and model selection.
 - `python_runtime.sh` rejects `MODEL_BACKEND=local_gemma4_multimodal` without a non-empty `MODEL_PATH`.
 
-## Submitted Probe Record
+## First Submitted Probe Record
 
 Probe asset:
 
@@ -170,12 +179,72 @@ Monitor later with:
 find /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260514T071350Z_gemma4_probe_v1/output -type f -maxdepth 4 -print
 ```
 
+## Replacement Probe Record
+
+Replacement probe asset:
+
+```text
+basket/6c68230d67112b1dfd2bd7fa9322c756
+```
+
+Replacement probe run paths:
+
+```text
+RUN_ID=20260515T005924Z_gemma4_probe_v2
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2
+ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2/input/one_asset.txt
+OUTPUT_DIR=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2/output
+```
+
+Submission command used after fixing the `src` layout import path:
+
+```bash
+DLC_WORKSPACE_ID=270969 \
+DLC_RESOURCE_ID=quota1r947pmazvk \
+RUN_ID=20260515T005924Z_gemma4_probe_v2 \
+ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2/input/one_asset.txt \
+TOTAL=1 NAME=gemma4_grscenes_probe_v2 \
+bash scripts/dlc/submit_gemma4_reannotate.sh --submit
+```
+
+Observed DLC state after submission:
+
+```text
+Job ID: dlc14l1zbec0ofk2
+Status: EnvPreparing
+ReasonCode: JobPreparing
+ReasonMessage: PyTorchJob dlc14l1zbec0ofk2 has been successfully scheduled and is now entering the preparation phase.
+GmtCreateTime: 2026-05-15T01:00:05Z
+GmtSubmittedTime: 2026-05-15T01:00:10Z
+PodId: dlc14l1zbec0ofk2-master-0
+Pod status: Pending
+```
+
+The current output directory check found no files immediately after submission, which is expected while the worker is still preparing:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2/output
+```
+
+Replacement probe logs are under:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2/logs
+```
+
+Monitor with:
+
+```bash
+./dlc get job dlc14l1zbec0ofk2
+find /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2/output -maxdepth 4 -type f -print
+```
+
 ## Commands For A Future Probe
 
 Create a one-asset probe list:
 
 ```bash
-RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)_gemma4_probe_v1
+RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)_gemma4_probe_v3
 RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/$RUN_ID
 mkdir -p "$RUN_ROOT/input" "$RUN_ROOT/output" "$RUN_ROOT/logs" "$RUN_ROOT/cache"
 printf '%s\n' 'basket/6c68230d67112b1dfd2bd7fa9322c756' > "$RUN_ROOT/input/one_asset.txt"
@@ -186,7 +255,7 @@ Dry-run that probe:
 ```bash
 RUN_ID=$RUN_ID \
 ASSET_LIST_FILE="$RUN_ROOT/input/one_asset.txt" \
-TOTAL=1 NAME=gemma4_grscenes_probe \
+TOTAL=1 NAME=gemma4_grscenes_probe_v3 \
 bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
 ```
 
@@ -197,7 +266,7 @@ DLC_WORKSPACE_ID=270969 \
 DLC_RESOURCE_ID=quota1r947pmazvk \
 RUN_ID=$RUN_ID \
 ASSET_LIST_FILE="$RUN_ROOT/input/one_asset.txt" \
-TOTAL=1 NAME=gemma4_grscenes_probe \
+TOTAL=1 NAME=gemma4_grscenes_probe_v3 \
 bash scripts/dlc/submit_gemma4_reannotate.sh --submit
 ```
 
@@ -229,7 +298,7 @@ bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
 
 ## Evidence Already Recorded
 
-- DLC script tests: `43` passed.
+- DLC script tests: `44` passed.
 - Model backend tests: `28` passed, `1` skipped.
 - Markdown fence check and `git diff --check` passed before commit `8b58a75`.
 - Dry-run output showed `annotation_runs/<run_id>/output`, `DLC_WORKER_SETUP_SCRIPT`, `AUTO_ASSET_VENV`, `MODEL_BACKEND=local_gemma4_multimodal`, `MODEL_PATH`, and `UNSLOTH_COMPILE_LOCATION`.
