@@ -81,7 +81,9 @@ logs/job_ids.tsv
 logs/status_latest.tsv
 ```
 
-Final DLC status snapshot has `64` `Succeeded`, `0` `Failed`, and `0` still running. The output directory contains `53,167` annotation JSON files, matching the `53,167`-asset input list. A full JSON parse and required-field validation found `0` bad JSON files and `0` records missing `category`, `description`, `dimensions`, `mass`, `material`, or `placement`. This is structural validation only; downstream semantic QA and any merge/apply step have not been performed.
+Final DLC status snapshot has `64` `Succeeded`, `0` `Failed`, and `0` still running. The output directory contains `53,167` annotation JSON files, matching the `53,167`-asset input list. A full JSON parse and required-field validation found `0` bad JSON files and `0` records missing `category`, `description`, `dimensions`, `mass`, `material`, or `placement`.
+
+The Gemma4 output has also been synchronized into the dataset metadata files at `GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json` with `scripts/sync_grscenes_annotations.py`. This sync preserved dataset metadata fields such as `uid`, `asset_type`, `usd_size`, `orientation`, and `usd_material_softlink`, and filled only `description`, `material`, `dimensions`, `mass`, and `placement`. Post-sync dataset validation found `53,167` target JSON files, `0` bad JSON files, `0` uid/category mismatches, and `0` empty values for those five semantic fields. This is structural and field-completeness validation only; semantic QA has not been completed.
 
 Current target:
 
@@ -106,6 +108,7 @@ The concise status and next commands are in `docs/changes/2026-05-14_gemma4_dlc_
 - Submit an explicit asset list: `bash scripts/dlc/submit_asset_list.sh --asset_list_file <path>`
 - Submit a tiny real/probe job: `MODEL_BACKEND=<backend> ASSET_LIST_FILE=<small-list> bash scripts/dlc/submit_probe.sh`
 - Submit an isolated Gemma4 reannotation run: `ASSET_LIST_FILE=<list> bash scripts/dlc/submit_gemma4_reannotate.sh`
+- Dry-run sync from Auto-Asset wrapped output into GRScenes metadata: `python scripts/sync_grscenes_annotations.py --source-dir <output> --target-dir <GRScenes_assets> --audit-jsonl <audit.jsonl>`
 - Raw batch submission for custom `main.py` flags: `python scripts/dlc/submit_batch.py ... --command_args "..."`
 
 Direct `run_task.sh` named modes (`annotate`, `classify`, `extract`, `custom`) still exist for debugging, but chunk mode is the maintained DLC operator path.

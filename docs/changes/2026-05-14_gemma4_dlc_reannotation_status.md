@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-15
 **Dataset**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
-**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image, preflights `natsort`, and v3 succeeded with one valid annotation JSON. A later 8-asset multi-category probe succeeded, and the full `53,167`-asset Gemma4 reannotation run completed as 64 DLC chunks into an isolated `annotation_runs` output tree.
+**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image, preflights `natsort`, and v3 succeeded with one valid annotation JSON. A later 8-asset multi-category probe succeeded, the full `53,167`-asset Gemma4 reannotation run completed as 64 DLC chunks into an isolated `annotation_runs` output tree, and the resulting semantic fields were synchronized into the dataset metadata files with backup and audit manifests.
 
 ## Plain Status
 
@@ -12,12 +12,13 @@ The repository can construct and submit a Gemma4 DLC batch command without pollu
 Full run:   completed
 Chunks:     64 Succeeded, 0 Failed
 Outputs:    53,167 annotation JSON files
-Validation: 0 bad JSON files, 0 records missing required fields
+Dataset:    53,167 target metadata files synchronized
+Validation: 0 bad JSON files, 0 target empty semantic fields
 Run root:   /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
 Output dir: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/output
 ```
 
-This means DLC execution and basic output-structure validation completed. It does not mean downstream semantic QA or merge/apply work has been performed.
+This means DLC execution and dataset field-completeness validation completed. It does not mean downstream semantic QA has been performed.
 
 The v3 one-asset probe uses the Genesis-LLM successful image and succeeded:
 
@@ -622,6 +623,139 @@ It does not write to the old Qwen output locations:
 ./output_reannotate
 /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
 ```
+
+That statement describes the annotation generation step. The later sync step intentionally wrote converted semantic fields into the dataset metadata files after a full dry-run and backup.
+
+## Dataset Metadata Sync Record
+
+Sync tool added:
+
+```text
+scripts/sync_grscenes_annotations.py
+```
+
+Purpose:
+
+```text
+Read Auto-Asset wrapped output:
+  annotation_runs/20260515T015209Z_gemma4_full_v1/output/{category}/{asset_id}_annotation.json
+
+Update GRScenes metadata:
+  dataset/GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json
+```
+
+Fields updated:
+
+```text
+description
+material
+dimensions
+mass
+placement
+```
+
+Fields preserved from dataset metadata:
+
+```text
+uid
+category
+asset_type
+glb_size
+usd_size
+urdf_size
+orientation
+usd_material_softlink
+```
+
+Dry-run command:
+
+```bash
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
+SRC="$RUN_ROOT/output"
+DATA=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+python scripts/sync_grscenes_annotations.py \
+  --source-dir "$SRC" \
+  --target-dir "$DATA" \
+  --audit-jsonl "$RUN_ROOT/logs/sync_dry_run_audit.jsonl" \
+  --summary-json "$RUN_ROOT/logs/sync_dry_run_summary.json"
+```
+
+Dry-run result:
+
+```text
+source_files=53167
+matched_target=53167
+updated=53167
+skipped=0
+failed=0
+no_target=0
+source_raw_output=0
+bad_source=0
+bad_target=0
+```
+
+Apply command:
+
+```bash
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
+SRC="$RUN_ROOT/output"
+DATA=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+BACKUP="$RUN_ROOT/backups/dataset_annotations_before_sync_20260515T085255Z"
+python scripts/sync_grscenes_annotations.py \
+  --source-dir "$SRC" \
+  --target-dir "$DATA" \
+  --audit-jsonl "$RUN_ROOT/logs/sync_apply_audit.jsonl" \
+  --summary-json "$RUN_ROOT/logs/sync_apply_summary.json" \
+  --backup-dir "$BACKUP" \
+  --apply
+```
+
+Apply result:
+
+```text
+source_files=53167
+matched_target=53167
+updated=53167
+skipped=0
+failed=0
+no_target=0
+source_raw_output=0
+bad_source=0
+bad_target=0
+backup_files=53167
+audit_lines=53167
+```
+
+Backup and audit paths:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/backups/dataset_annotations_before_sync_20260515T085255Z
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/logs/sync_dry_run_audit.jsonl
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/logs/sync_dry_run_summary.json
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/logs/sync_apply_audit.jsonl
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/logs/sync_apply_summary.json
+```
+
+Post-apply dataset scan:
+
+```text
+files=53167
+bad_json=0
+uid_or_category_mismatch=0
+empty_description=0
+empty_material=0
+empty_dimensions=0
+empty_mass=0
+empty_placement=0
+```
+
+Example target:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets/bicycle/c251052c5cce6a2d5a18e465b5b1d6c2/c251052c5cce6a2d5a18e465b5b1d6c2_annotation.json
+```
+
+The example now preserves the original metadata fields and contains Gemma4-derived semantic fields. `placement` was converted from `"OnFloor"` to `["OnFloor"]`.
 
 ## Reference Probe Commands
 

@@ -130,10 +130,35 @@ GRScenes 原始资产目录中的 annotation 文件通常不是 Auto-Asset 输�
 3. 只更新语义字段：`description`、`material`、`dimensions`、`mass`、`placement`。
 4. 保留原始结构字段：`uid`、`asset_type`、`glb_size`、`usd_size`、`urdf_size`、`orientation`、`usd_material_softlink`。
 5. 将 `placement` 从字符串拆成 list，例如 `"OnTable, OnFloor"` -> `["OnTable", "OnFloor"]`。
-6. 将合并结果写入新的 staging/output 目录。
-7. 抽样人工检查后，再决定是否覆盖数据集原文件。
+6. 先运行 dry-run 并保存 audit manifest。
+7. 写入数据集前在数据集外保存原始目标 JSON 备份。
+8. 抽样人工检查后，再决定是否覆盖数据集原文件。
 
-建议输出路径形状：
+当前受控同步工具：
+
+```bash
+python scripts/sync_grscenes_annotations.py \
+  --source-dir /path/to/annotation_runs/<run_id>/output \
+  --target-dir /path/to/dataset/GRScenes_assets \
+  --audit-jsonl /path/to/annotation_runs/<run_id>/logs/sync_dry_run_audit.jsonl
+```
+
+真实写入时必须显式加 `--apply` 并提供数据集外部备份目录：
+
+```bash
+python scripts/sync_grscenes_annotations.py \
+  --source-dir /path/to/annotation_runs/<run_id>/output \
+  --target-dir /path/to/dataset/GRScenes_assets \
+  --audit-jsonl /path/to/annotation_runs/<run_id>/logs/sync_apply_audit.jsonl \
+  --summary-json /path/to/annotation_runs/<run_id>/logs/sync_apply_summary.json \
+  --backup-dir /path/to/annotation_runs/<run_id>/backups/dataset_annotations_before_sync \
+  --apply
+```
+
+默认策略是只填空字段，不覆盖非空字段。需要覆盖非空字段时必须额外传 `--overwrite`。
+脚本会拒绝位于 `--target-dir` 内部的 `--backup-dir`，也会拒绝复用已存在的 backup 目标文件，避免误把旧备份当成本次写入前备份。
+
+如果不直接写入数据集，也可以生成同 schema 的 staging 目录用于人工审查：
 
 ```text
 /cpfs/user/zhuzihou/tmp/auto_asset_annotator_backfill/{run_id}/GRScenes_assets/{category}/{asset_id}/{asset_id}_annotation.json
