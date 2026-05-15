@@ -16,16 +16,29 @@ Use the wrapper scripts for routine operations. Use `submit_batch.py` directly o
 
 ## Current Gemma4 Status
 
-As of 2026-05-15, Gemma4 reannotation for the GRScenes test0 dataset has a replacement one-asset real DLC probe submitted after the `src` layout runtime fix:
+As of 2026-05-15, Gemma4 reannotation for the GRScenes test0 dataset has two real one-asset DLC probe failures diagnosed:
+
+- `dlc1i6qia2inzfmv` failed before model loading because the remote runtime did not include `$CODE_ROOT/src` on `PYTHONPATH`.
+- `dlc14l1zbec0ofk2` reached model initialization and failed with `Failed to load model: No module named 'natsort'`.
+
+The second failure used the USD/Isaac image:
 
 ```text
 Job ID:   dlc14l1zbec0ofk2
 Job name: gemma4_grscenes_probe_v2_0_1
-Status:   EnvPreparing
+Status:   Failed
 Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2
+Image:    dsw-registry-vpc.cn-beijing.cr.aliyuncs.com/pai-training-algorithm/isaac-sim:isaacsim450-vnc-v8
+Error:    Failed to load model: No module named 'natsort'
 ```
 
-The first probe, `dlc1i6qia2inzfmv` / `gemma4_grscenes_probe_0_1`, failed before model loading because the remote Python runtime had `$CODE_ROOT` on `PYTHONPATH` but not `$CODE_ROOT/src`. The full real DLC run has not been submitted.
+The Gemma4 wrapper now defaults to the Genesis-LLM successful QLoRA image and preflights `natsort` before model loading:
+
+```text
+pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang
+```
+
+The full real DLC run has not been submitted.
 
 Current target:
 
@@ -68,6 +81,9 @@ Direct `run_task.sh` named modes (`annotate`, `classify`, `extract`, `custom`) s
 - For Gemma4, confirm the worker runtime is equivalent to the Genesis-LLM QLoRA env: Transformers must expose Gemma4 multimodal classes and Unsloth must be available for 4-bit checkpoints. A runtime with `transformers 5.2.0` is not enough even if it can import `AutoProcessor`.
 - Gemma4 DLC status: the launcher now embeds explicit worker runtime variables into the submitted command. Dry-run output must show `DLC_WORKER_SETUP_SCRIPT`, `AUTO_ASSET_VENV`, `MODEL_BACKEND=local_gemma4_multimodal`, `MODEL_PATH=...`, and `UNSLOTH_COMPILE_LOCATION=...` before any real probe.
 - For Gemma4, set `UNSLOTH_COMPILE_LOCATION` to a job-local output/cache path if possible, so Unsloth does not write `unsloth_compiled_cache/` into the code root.
+- For Gemma4, dry-run output should show the Genesis-LLM successful image unless there is an intentional override:
+  `pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang`.
+- For Gemma4, `AUTO_ASSET_VENV` must be able to import `natsort` directly. The managed env currently has `natsort==8.4.0` installed under `/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/lib/python3.10/site-packages/natsort`.
 
 ## Submission Methods
 
@@ -118,6 +134,19 @@ Use `submit_gemma4_reannotate.sh` for the GRScenes test0 reannotation path. It d
 ```text
 /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/<run_id>/output
 ```
+
+It also defaults to the Genesis-LLM successful QLoRA image:
+
+```text
+pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang
+```
+
+Reference image split:
+
+| Project | Successful image | Use here |
+|---------|------------------|----------|
+| `/cpfs/user/zhuzihou/dev/genesis-llm` | `pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang` | Gemma4 / QLoRA / Unsloth inference |
+| `/cpfs/shared/simulation/zhuzihou/dev/usd-scene-physics-prep` | `dsw-registry-vpc.cn-beijing.cr.aliyuncs.com/pai-training-algorithm/isaac-sim:isaacsim450-vnc-v8` | Isaac Sim / USD / physics preprocessing |
 
 It refuses unsafe output directories such as `./output`, `./output_reannotate`, and the source `dataset/GRScenes_assets` tree.
 It also requires the exact output shape `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/<run_id>/output`.

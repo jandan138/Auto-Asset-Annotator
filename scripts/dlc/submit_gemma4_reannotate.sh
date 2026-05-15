@@ -15,6 +15,9 @@ MODEL_BACKEND=local_gemma4_multimodal
 MODEL_PATH=${MODEL_PATH:-/cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8}
 AUTO_ASSET_VENV=${AUTO_ASSET_VENV:-/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310}
 DLC_WORKER_SETUP_SCRIPT=${DLC_WORKER_SETUP_SCRIPT:-/cpfs/user/zhuzihou/conda-managed/bin/use-gcc-toolchain-hf-offline.sh}
+# Gemma4 follows the Genesis-LLM QLoRA runtime path. The Isaac Sim image is
+# suitable for USD/physics jobs but has already failed this model load path.
+DLC_IMAGE=${DLC_IMAGE:-pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang}
 DLC_PROFILE=${DLC_PROFILE:-local_hf_default}
 DLC_DATA_SOURCES=${DLC_DATA_SOURCES:-d-mzps5b7joy2axmqpa8,d-d49o5g0h2818sw8j1g,d-8wz4emfs21s5ajs9oz,d-f1dsz5nbamclxgydo8}
 
@@ -128,7 +131,7 @@ else
 fi
 
 export TOTAL NAME INPUT_DIR OUTPUT_DIR ASSET_LIST_FILE EXTRA_MAIN_ARGS
-export MODEL_BACKEND MODEL_PATH AUTO_ASSET_VENV DLC_WORKER_SETUP_SCRIPT DLC_PROFILE DLC_DATA_SOURCES
+export MODEL_BACKEND MODEL_PATH AUTO_ASSET_VENV DLC_WORKER_SETUP_SCRIPT DLC_IMAGE DLC_PROFILE DLC_DATA_SOURCES
 export UNSLOTH_COMPILE_LOCATION HF_HUB_OFFLINE TRANSFORMERS_OFFLINE TOKENIZERS_PARALLELISM
 
 echo "[gemma4-reannotate] TOTAL=$TOTAL NAME=$NAME DLC_PROFILE=$DLC_PROFILE"
@@ -138,5 +141,6 @@ echo "[gemma4-reannotate] ASSET_LIST_FILE=$ASSET_LIST_FILE"
 echo "[gemma4-reannotate] MODEL_PATH=$MODEL_PATH"
 echo "[gemma4-reannotate] AUTO_ASSET_VENV=$AUTO_ASSET_VENV"
 echo "[gemma4-reannotate] DLC_WORKER_SETUP_SCRIPT=$DLC_WORKER_SETUP_SCRIPT"
+echo "[gemma4-reannotate] DLC_IMAGE=$DLC_IMAGE"
 
 exec bash "$SUBMIT_WRAPPER" "$@"

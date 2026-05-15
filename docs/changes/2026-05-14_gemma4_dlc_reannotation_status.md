@@ -2,18 +2,21 @@
 
 **Date**: 2026-05-15
 **Dataset**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
-**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe has been submitted successfully and is in DLC environment preparation.
+**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image and preflights `natsort`.
 
 ## Plain Status
 
-The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current replacement one-asset probe is:
+The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current replacement one-asset probe reached model initialization and then failed:
 
 ```text
 Job ID:   dlc14l1zbec0ofk2
 Job name: gemma4_grscenes_probe_v2_0_1
-Status:   EnvPreparing
+Status:   Failed
 Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2
+Pod log:  Failed to load model: No module named 'natsort'
 ```
+
+The failure is later than the first probe: repository import succeeded and model initialization started.
 
 The previous one-asset probe failed before model loading because the remote Python runtime could not import this repository's `src` layout:
 
@@ -71,14 +74,43 @@ DLC_WORKER_SETUP_SCRIPT=/cpfs/user/zhuzihou/conda-managed/bin/use-gcc-toolchain-
 
 Important runtime packaging detail: this repository uses a `src/auto_asset_annotator` layout. The Genesis QLoRA env does not have `auto_asset_annotator` installed as an editable package, so the DLC runtime must add both `$CODE_ROOT/src` and `$CODE_ROOT` to `PYTHONPATH`.
 
+Important image/runtime detail: the Gemma4 path should follow the `genesis-llm` successful QLoRA runtime, not the USD physics-prep runtime.
+
+| Reference project | Successful image | Interpretation for this repo |
+|-------------------|------------------|------------------------------|
+| `/cpfs/user/zhuzihou/dev/genesis-llm` | `pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang` | Use for Gemma4 / QLoRA / Unsloth model inference. |
+| `/cpfs/shared/simulation/zhuzihou/dev/usd-scene-physics-prep` | `dsw-registry-vpc.cn-beijing.cr.aliyuncs.com/pai-training-algorithm/isaac-sim:isaacsim450-vnc-v8` | Use for Isaac Sim / USD / physics preprocessing; not the right default for Gemma4 model loading. |
+
+The second probe used the USD/Isaac image:
+
+```text
+dsw-registry-vpc.cn-beijing.cr.aliyuncs.com/pai-training-algorithm/isaac-sim:isaacsim450-vnc-v8
+```
+
+The Gemma4 reannotation wrapper now defaults to the Genesis-LLM image:
+
+```text
+pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang
+```
+
+The worker-visible `AUTO_ASSET_VENV` now also has `natsort==8.4.0` installed directly under:
+
+```text
+/cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/lib/python3.10/site-packages/natsort
+```
+
+This removes the previous implicit dependency on borrowing `natsort` from whatever `/isaac-sim` site-packages happened to exist in the active image.
+
 ## Safety Gates Now In Code
 
 - `submit_batch.py` defaults to dry-run.
 - Real submission requires `--submit`.
 - `launch_job.sh` real submission requires `DLC_SUBMIT=1`, `DLC_DRY_RUN=0`, explicit `DLC_WORKSPACE_ID`, explicit `DLC_RESOURCE_ID`, and a per-job `DLC_REAL_SUBMIT_CONFIRM`.
 - `submit_gemma4_reannotate.sh` only accepts the exact `annotation_runs/<run_id>/output` output shape.
+- `submit_gemma4_reannotate.sh` defaults `DLC_IMAGE` to the Genesis-LLM successful QLoRA image.
 - Gemma4 reannotation rejects protected `EXTRA_MAIN_ARGS` overrides for input, output, asset list, chunking, and model selection.
 - `python_runtime.sh` rejects `MODEL_BACKEND=local_gemma4_multimodal` without a non-empty `MODEL_PATH`.
+- `python_runtime.sh` preflights `natsort` before Gemma4 model loading, so a missing borrowed dependency fails with an actionable runtime error.
 
 ## First Submitted Probe Record
 
@@ -220,7 +252,40 @@ PodId: dlc14l1zbec0ofk2-master-0
 Pod status: Pending
 ```
 
-The current output directory check found no files immediately after submission, which is expected while the worker is still preparing:
+Final observed DLC state:
+
+```text
+Status: Failed
+ReasonCode: JobFailed
+GmtFailedTime: 2026-05-15T01:04:20Z
+PodId: dlc14l1zbec0ofk2-master-0
+Pod status: Failed
+```
+
+Pod log:
+
+```text
+Initializing Model Engine with model: /cpfs/user/zhuzihou/models/gemma4/releases/unsloth-gemma-4-E4B-it-unsloth-bnb-4bit/9746c23553347b443ebdc1caba1d41b52223d0c8
+Failed to load model: No module named 'natsort'
+```
+
+Root cause:
+
+```text
+The Gemma4 conda env could import natsort on the submit host only because the host Python path exposed /isaac-sim/kit/python/lib/python3.10/site-packages.
+The DLC worker used the USD/Isaac image path where that borrowed package was not present for this model load.
+The Gemma4 path should use the Genesis-LLM successful image and should not depend on borrowed image-local Python packages.
+```
+
+Fix:
+
+```text
+scripts/dlc/submit_gemma4_reannotate.sh now defaults DLC_IMAGE to pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang.
+scripts/dlc/python_runtime.sh now preflights natsort for local_gemma4_multimodal before model loading.
+natsort==8.4.0 was copied into /cpfs/user/zhuzihou/conda-managed/envs/genesis-llm-qlora-py310/lib/python3.10/site-packages.
+```
+
+The output directory check found no files:
 
 ```text
 /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2/output
@@ -238,6 +303,8 @@ Monitor with:
 ./dlc get job dlc14l1zbec0ofk2
 find /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T005924Z_gemma4_probe_v2/output -maxdepth 4 -type f -print
 ```
+
+Do not resubmit with this exact job name. Use a new `RUN_ID` and `NAME`.
 
 ## Commands For A Future Probe
 
@@ -298,9 +365,10 @@ bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
 
 ## Evidence Already Recorded
 
-- DLC script tests: `44` passed.
+- DLC script tests: `46` passed.
 - Model backend tests: `28` passed, `1` skipped.
 - Markdown fence check and `git diff --check` passed before commit `8b58a75`.
 - Dry-run output showed `annotation_runs/<run_id>/output`, `DLC_WORKER_SETUP_SCRIPT`, `AUTO_ASSET_VENV`, `MODEL_BACKEND=local_gemma4_multimodal`, `MODEL_PATH`, and `UNSLOTH_COMPILE_LOCATION`.
 - Protected `EXTRA_MAIN_ARGS='--output_dir ./output'` failed before launcher execution.
-- Failed probe diagnosis captured `pod_master_logs_failed_investigation.txt`, `pod_master_events_failed_investigation.txt`, and local reproduction of the import failure.
+- First failed probe diagnosis captured `pod_master_logs_failed_investigation.txt`, `pod_master_events_failed_investigation.txt`, and local reproduction of the import failure.
+- Second failed probe diagnosis captured `pod_master_logs_failed.txt` with the `No module named 'natsort'` model-load error and local verification that `natsort` now resolves from the managed conda env itself.

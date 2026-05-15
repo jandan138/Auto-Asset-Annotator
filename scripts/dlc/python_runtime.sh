@@ -137,4 +137,12 @@ if { [ "$MODEL_BACKEND_VALUE" = "local_hf" ] || [ "$MODEL_BACKEND_VALUE" = "loca
     esac
 fi
 
+if [ "$MODEL_BACKEND_VALUE" = "local_gemma4_multimodal" ]; then
+    if ! "$PYTHON_BIN" -c "import natsort" >/dev/null 2>&1; then
+        echo "ERROR: Gemma4 runtime dependency missing: natsort in $PYTHON_BIN" >&2
+        echo "Use the Genesis-LLM DLC image/runtime or install natsort into AUTO_ASSET_VENV." >&2
+        exit 1
+    fi
+fi
+
 exec "$PYTHON_BIN" "$@"

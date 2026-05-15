@@ -1180,6 +1180,86 @@ class TestDLCScripts(unittest.TestCase):
         self.assertIn(f"--output_dir {safe_output}", result.stdout)
         self.assertIn("annotation_runs", result.stdout)
 
+    def test_submit_gemma4_reannotate_defaults_to_genesis_success_image(self):
+        with tempfile.NamedTemporaryFile("w", delete=False) as f:
+            f.write("basket/6c68230d67112b1dfd2bd7fa9322c756\n")
+            asset_list = f.name
+        self.addCleanup(lambda: os.path.exists(asset_list) and os.remove(asset_list))
+
+        safe_output = (
+            "/cpfs/user/zhuzihou/assets/dedup_workspaces/"
+            "test0_transitive_apply_parallel/annotation_runs/"
+            "20260515_gemma4_probe_v3/output"
+        )
+        env = os.environ.copy()
+        env.update(
+            {
+                "ASSET_LIST_FILE": asset_list,
+                "OUTPUT_DIR": safe_output,
+                "INPUT_DIR": "/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets",
+            }
+        )
+        env.pop("DLC_IMAGE", None)
+
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "submit_gemma4_reannotate.sh"), "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env=env,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(
+            "pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang",
+            result.stdout,
+        )
+
+    def test_python_runtime_preflights_gemma4_natsort_dependency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code_root = Path(tmp)
+            fake_repo_package = code_root / "auto_asset_annotator"
+            fake_repo_package.mkdir()
+            (fake_repo_package / "__init__.py").write_text("")
+            model_path = code_root / "model"
+            model_path.mkdir()
+
+            fake_python = code_root / ".venv_dlc" / "bin" / "python"
+            fake_python.parent.mkdir(parents=True)
+            fake_python.write_text(
+                "#!/bin/bash\n"
+                'if [ "$1" = "-c" ]; then\n'
+                '  case "$2" in\n'
+                '    *auto_asset_annotator*) exit 0 ;;\n'
+                '    *natsort*) echo "ModuleNotFoundError: No module named natsort" >&2; exit 1 ;;\n'
+                "    *) exit 0 ;;\n"
+                "  esac\n"
+                "fi\n"
+                "exit 0\n"
+            )
+            fake_python.chmod(0o755)
+
+            env = os.environ.copy()
+            env["DLC_CODE_ROOT"] = str(code_root)
+            env["MODEL_BACKEND"] = "local_gemma4_multimodal"
+            env["MODEL_PATH"] = str(model_path)
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(SCRIPTS_DIR / "python_runtime.sh"),
+                    "-m",
+                    "auto_asset_annotator.main",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=REPO_ROOT,
+                env=env,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Gemma4 runtime dependency missing: natsort", result.stderr)
+
     def test_python_runtime_rejects_missing_gemma4_model_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             code_root = Path(tmp)
