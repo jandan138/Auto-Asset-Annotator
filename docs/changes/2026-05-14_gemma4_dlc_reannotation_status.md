@@ -2,18 +2,19 @@
 
 **Date**: 2026-05-15
 **Dataset**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
-**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image, preflights `natsort`, and v3 has been submitted successfully.
+**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image, preflights `natsort`, and v3 succeeded with one valid annotation JSON.
 
 ## Plain Status
 
-The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current v3 one-asset probe uses the Genesis-LLM successful image and has been submitted:
+The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current v3 one-asset probe uses the Genesis-LLM successful image and succeeded:
 
 ```text
 Job ID:   dlc10pg3d6j8izbv
 Job name: gemma4_grscenes_probe_v3_0_1
-Status:   EnvPreparing
+Status:   Succeeded
 Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3
 Image:    pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/mahaoxiang:genmanip-mahaoxiang
+Output:   output/basket/6c68230d67112b1dfd2bd7fa9322c756_annotation.json
 ```
 
 The v2 replacement one-asset probe reached model initialization and then failed:
@@ -353,10 +354,51 @@ GmtCreateTime: 2026-05-15T01:25:27Z
 GmtSubmittedTime: 2026-05-15T01:25:32Z
 ```
 
-The current output directory check found no files immediately after submission, which is expected while the worker is still preparing:
+Final observed DLC state:
 
 ```text
-/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/output
+Status: Succeeded
+ReasonCode: JobSucceeded
+ReasonMessage: PyTorchJob dlc10pg3d6j8izbv is successfully completed.
+GmtRunningTime: 2026-05-15T01:37:39Z
+GmtSuccessedTime: 2026-05-15T01:38:56Z
+PodId: dlc10pg3d6j8izbv-master-0
+Pod status: Succeeded
+```
+
+Pod log evidence:
+
+```text
+[INFO] Gemma4 multimodal model loaded successfully.
+[INFO] Loaded 1 assets from list.
+[INFO] Processing asset: 6c68230d67112b1dfd2bd7fa9322c756
+[INFO] Finished 6c68230d67112b1dfd2bd7fa9322c756 in 19.48s
+Processing complete.
+```
+
+The output directory contains exactly one annotation JSON:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/output/basket/6c68230d67112b1dfd2bd7fa9322c756_annotation.json
+```
+
+JSON validation:
+
+```text
+valid_json=true
+asset=basket/6c68230d67112b1dfd2bd7fa9322c756
+fields=category,description,dimensions,mass,material,placement
+category=basket
+dimensions=0.4 * 0.3 * 0.2
+mass=1.5
+placement=OnFloor
+```
+
+Output content summary:
+
+```text
+description=This is a woven basket with a natural, light brown color and a textured surface created by the interwoven strands. It features a sturdy handle attached to the rim, suggesting it is designed for carrying or storage. The basket has a generally rounded or cylindrical shape, and its construction appears durable and rustic. The overall proportion suggests it is a medium-sized utility or decorative item.
+material=Woven natural fibers (likely wicker or reed) for the entire body and handle.
 ```
 
 Probe logs are under:
@@ -371,6 +413,8 @@ Monitor with:
 ./dlc get job dlc10pg3d6j8izbv
 find /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/output -maxdepth 4 -type f -print
 ```
+
+Next step recommendation: run a small multi-asset/multi-category probe before full reannotation. Do not submit the full `53,167`-asset run until that small batch succeeds and its JSON quality is sampled.
 
 ## Commands For A Future Probe
 
