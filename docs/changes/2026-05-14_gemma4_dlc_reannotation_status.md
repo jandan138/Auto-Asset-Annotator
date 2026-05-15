@@ -2,11 +2,23 @@
 
 **Date**: 2026-05-15
 **Dataset**: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`
-**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image, preflights `natsort`, and v3 succeeded with one valid annotation JSON.
+**Status**: First one-asset real DLC probe failed at runtime preflight; root cause identified and fixed. Replacement one-asset probe reached model initialization, then failed because the Gemma4 runtime was using the USD/Isaac image path and lacked `natsort` in the worker-visible Python stack. The Gemma4 wrapper now defaults to the Genesis-LLM successful DLC image, preflights `natsort`, and v3 succeeded with one valid annotation JSON. A later 8-asset multi-category probe succeeded, and the full `53,167`-asset Gemma4 reannotation run has been submitted as 64 DLC chunks into an isolated `annotation_runs` output tree.
 
 ## Plain Status
 
-The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current v3 one-asset probe uses the Genesis-LLM successful image and succeeded:
+The repository can construct and submit a Gemma4 DLC batch command without polluting old outputs. The current state is:
+
+```text
+Full run:   submitted, in progress
+Chunks:     64 submitted, 0 submission failures
+Snapshot:   4 Running, 60 Queuing, 0 Failed
+Run root:   /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
+Output dir: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/output
+```
+
+This means submission and initial DLC scheduling succeeded. It does not mean the full annotation pass has completed.
+
+The v3 one-asset probe uses the Genesis-LLM successful image and succeeded:
 
 ```text
 Job ID:   dlc10pg3d6j8izbv
@@ -414,9 +426,170 @@ Monitor with:
 find /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T012454Z_gemma4_probe_v3/output -maxdepth 4 -type f -print
 ```
 
-Next step recommendation: run a small multi-asset/multi-category probe before full reannotation. Do not submit the full `53,167`-asset run until that small batch succeeds and its JSON quality is sampled.
+This one-asset result was followed by a small multi-asset/multi-category probe before full submission.
 
-## Commands For A Future Probe
+## Multi-Category Probe Record
+
+Probe run paths:
+
+```text
+RUN_ID=20260515T015019Z_gemma4_multicat_probe_v1
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015019Z_gemma4_multicat_probe_v1
+ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015019Z_gemma4_multicat_probe_v1/input/multicat_8_assets.txt
+OUTPUT_DIR=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015019Z_gemma4_multicat_probe_v1/output
+```
+
+Probe asset list:
+
+```text
+backpack/3f99b44a34f7c6c935c508293a194502
+basket/040600389fdab577a5376c28e6c5eb15
+bath_tub/0a667a5f263ae01bdd94754668b7293a
+bed/00ca2676bbed26d6a39a968d99d61176
+bicycle/c251052c5cce6a2d5a18e465b5b1d6c2
+blanket/005c2a0c4ca7d5d0daa8c6b84b810400
+book/00017b8cdf1dfbf33ca0579bd36c74da
+book_shelf/08fb65f0d846ef2e5b292a396564da58
+```
+
+Submission command used:
+
+```bash
+DLC_WORKSPACE_ID=270969 \
+DLC_RESOURCE_ID=quota1r947pmazvk \
+RUN_ID=20260515T015019Z_gemma4_multicat_probe_v1 \
+ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015019Z_gemma4_multicat_probe_v1/input/multicat_8_assets.txt \
+TOTAL=1 NAME=gemma4_grscenes_multicat_probe_v1 \
+bash scripts/dlc/submit_gemma4_reannotate.sh --submit
+```
+
+Final observed DLC state:
+
+```text
+Job ID: dlc173f6kqzyiovg
+Job name: gemma4_grscenes_multicat_probe_v1_0_1
+Status: Succeeded
+GmtSuccessedTime: 2026-05-15T01:53:20Z
+```
+
+JSON validation:
+
+```text
+json_files=8
+failures=0
+fields=category,description,dimensions,mass,material,placement
+```
+
+Outputs:
+
+```text
+output/backpack/3f99b44a34f7c6c935c508293a194502_annotation.json
+output/basket/040600389fdab577a5376c28e6c5eb15_annotation.json
+output/bath_tub/0a667a5f263ae01bdd94754668b7293a_annotation.json
+output/bed/00ca2676bbed26d6a39a968d99d61176_annotation.json
+output/bicycle/c251052c5cce6a2d5a18e465b5b1d6c2_annotation.json
+output/blanket/005c2a0c4ca7d5d0daa8c6b84b810400_annotation.json
+output/book/00017b8cdf1dfbf33ca0579bd36c74da_annotation.json
+output/book_shelf/08fb65f0d846ef2e5b292a396564da58_annotation.json
+```
+
+Schema/runtime gate result: pass. A later semantic QA pass should still sample placement and material quality before merging outputs into any downstream consumer, because this probe only validated runtime behavior and JSON shape.
+
+## Full Run Submission Record
+
+Full run paths:
+
+```text
+RUN_ID=20260515T015209Z_gemma4_full_v1
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
+ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/input/all_assets.txt
+OUTPUT_DIR=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/output
+```
+
+Full asset list facts:
+
+```text
+assets=53167
+chunks=64
+job_name_pattern=gemma4_grscenes_full_v1_<chunk>_64
+average_assets_per_chunk=about 831
+```
+
+Dry-run result:
+
+```text
+Total chunks: 64
+Successful chunks (64): [0, 1, ..., 63]
+Failed chunks (0): []
+Mode: dry-run
+DRY RUN complete: no jobs were submitted
+```
+
+Real submission command:
+
+```bash
+DLC_WORKSPACE_ID=270969 DLC_RESOURCE_ID=quota1r947pmazvk \
+  RUN_ID=20260515T015209Z_gemma4_full_v1 \
+  ASSET_LIST_FILE=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/input/all_assets.txt \
+  TOTAL=64 NAME=gemma4_grscenes_full_v1 \
+  bash scripts/dlc/submit_gemma4_reannotate.sh --submit \
+  | tee /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/logs/submit.log
+```
+
+Real submission result:
+
+```text
+Total chunks: 64
+Successful chunks (64): [0, 1, ..., 63]
+Failed chunks (0): []
+All chunks submitted successfully.
+```
+
+Tracking files generated from the submission:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/logs/submit.log
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/logs/job_ids.tsv
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/logs/status_latest.tsv
+```
+
+Initial post-submit status snapshot:
+
+```text
+rows=64
+Running=4
+Queuing=60
+Failed=0
+```
+
+Representative job IDs:
+
+```text
+chunk 0:  dlcmkamtmud866n9  gemma4_grscenes_full_v1_0_64
+chunk 1:  dlcos7dvuwf27h8k  gemma4_grscenes_full_v1_1_64
+chunk 2:  dlcqg4y6iuaduzdk  gemma4_grscenes_full_v1_2_64
+chunk 3:  dlcs42ih6pnnkvjo  gemma4_grscenes_full_v1_3_64
+chunk 60: dlciyhbey41mdpyk  gemma4_grscenes_full_v1_60_64
+chunk 61: dlckcfabu3rgllt3  gemma4_grscenes_full_v1_61_64
+chunk 62: dlcmacg0aw4n8rvq  gemma4_grscenes_full_v1_62_64
+chunk 63: dlcn4b85m5olp3tk  gemma4_grscenes_full_v1_63_64
+```
+
+The full job writes only under this isolated output root:
+
+```text
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1/output
+```
+
+It does not write to the old Qwen output locations:
+
+```text
+./output
+./output_reannotate
+/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets
+```
+
+## Reference Probe Commands
 
 Create a one-asset probe list:
 
@@ -447,7 +620,7 @@ TOTAL=1 NAME=gemma4_grscenes_probe_v3 \
 bash scripts/dlc/submit_gemma4_reannotate.sh --submit
 ```
 
-## Full Run Shape
+## Reference Full Run Shape
 
 After the one-asset real probe and a small multi-category run pass, generate the full list:
 

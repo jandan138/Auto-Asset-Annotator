@@ -16,7 +16,7 @@ Use the wrapper scripts for routine operations. Use `submit_batch.py` directly o
 
 ## Current Gemma4 Status
 
-As of 2026-05-15, Gemma4 reannotation for the GRScenes test0 dataset has two real one-asset DLC probe failures diagnosed and a third one-asset probe succeeded with the corrected Genesis-LLM image:
+As of 2026-05-15, Gemma4 reannotation for the GRScenes test0 dataset has moved from probes to a submitted full 64-way DLC run. The earlier one-asset failures are diagnosed, the corrected Genesis-LLM image has passed one-asset and multi-category probes, and the full run is now queued/running without touching old Qwen outputs:
 
 - `dlc1i6qia2inzfmv` failed before model loading because the remote runtime did not include `$CODE_ROOT/src` on `PYTHONPATH`.
 - `dlc14l1zbec0ofk2` reached model initialization and failed with `Failed to load model: No module named 'natsort'`.
@@ -51,7 +51,37 @@ Output:   output/basket/6c68230d67112b1dfd2bd7fa9322c756_annotation.json
 The produced JSON validated with one asset record and these fields:
 `category`, `description`, `dimensions`, `mass`, `material`, and `placement`.
 
-The full real DLC run has not been submitted.
+Multi-category probe:
+
+```text
+Job ID:   dlc173f6kqzyiovg
+Job name: gemma4_grscenes_multicat_probe_v1_0_1
+Status:   Succeeded
+Run root: /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015019Z_gemma4_multicat_probe_v1
+Output:   8 annotation JSON files across 8 categories
+```
+
+Full submitted run:
+
+```text
+RUN_ID:      20260515T015209Z_gemma4_full_v1
+RUN_ROOT:    /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
+Asset list:  input/all_assets.txt
+Asset count: 53,167
+Chunks:      64
+Job name:    gemma4_grscenes_full_v1_<chunk>_64
+Output:      output/
+```
+
+Post-submit tracking files:
+
+```text
+logs/submit.log
+logs/job_ids.tsv
+logs/status_latest.tsv
+```
+
+Initial post-submit DLC status snapshot had `64` submitted chunks, `0` submission failures, `4` `Running`, `60` `Queuing`, and `0` `Failed`. This means the full run has been submitted and is in progress; it does not mean the full annotation has completed.
 
 Current target:
 
@@ -208,7 +238,7 @@ TOTAL=64 NAME=gemma4_grscenes_full_v1 \
 bash scripts/dlc/submit_gemma4_reannotate.sh --dry-run
 ```
 
-After a tiny real probe writes valid JSON, submit the full run by adding `--submit` and explicit DLC IDs:
+Reference command for the already-submitted full run. Use a new `RUN_ID` and `NAME` if a later rerun is intentionally needed:
 
 ```bash
 DLC_WORKSPACE_ID=270969 \
@@ -217,6 +247,16 @@ RUN_ID=$RUN_ID \
 ASSET_LIST_FILE="$RUN_ROOT/input/all_assets.txt" \
 TOTAL=64 NAME=gemma4_grscenes_full_v1 \
 bash scripts/dlc/submit_gemma4_reannotate.sh --submit
+```
+
+For the current full run, inspect the submitted job IDs and latest status snapshot with:
+
+```bash
+RUN_ROOT=/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/annotation_runs/20260515T015209Z_gemma4_full_v1
+column -t -s $'\t' "$RUN_ROOT/logs/job_ids.tsv" | head
+column -t -s $'\t' "$RUN_ROOT/logs/status_latest.tsv" | head
+awk 'NR>1{status[$4]++} END{for (s in status) print s, status[s]}' "$RUN_ROOT/logs/status_latest.tsv"
+find "$RUN_ROOT/output" -name '*_annotation.json' | wc -l
 ```
 
 When you need raw control, `submit_batch.py` accepts extra `main.py` flags through `--command_args`. Those flags are appended after the chunk pair and do not change `run_task.sh` mode.
